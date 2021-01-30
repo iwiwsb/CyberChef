@@ -53,17 +53,15 @@ class ParseDNSMessage extends Operation {
         const dnsMessage = new Object();
         dnsMessage.Header = new Object();
 
-        const inputBytesLength = inputBytes.length;
-
-        if (inputBytesLength < 12) {
+        if (inputBytes.length < 12) {
             throw new OperationError("Need 12 bytes for a DNS Message Header");
         }
 
-        dnsMessage.Header.ID = inputBytes[0] * 16 + inputBytes[1];
+        dnsMessage.Header.ID = inputBytes[0] * 0x100 + inputBytes[1];
 
-        dnsMessage.Header.QR = input[2] >> 7;
+        const QR = inputBytes[2] >> 7;
         let qrType = "";
-        switch (dnsMessage.Header.QR) {
+        switch (QR) {
             case 0:
                 qrType = "Message is a query";
                 break;
@@ -71,10 +69,11 @@ class ParseDNSMessage extends Operation {
                 qrType = "Message is a response";
                 break;
             default:
-                throw new OperationError("Invalid message type");
+                qrType = "Invalid message type";
         }
+        dnsMessage.Header.QR = `${qrType} (${QR})`;
 
-        dnsMessage.Header.OPCODE = (input[2] >> 3) & 0b1111;
+        const OPCODE = (inputBytes[2] >> 3) & 0b1111;
         const dnsOperations = [
             {opName: "QUERY",  opDesc: "A standard query"},         // 0
             {opName: "IQUERY", opDesc: "An inverse query"},         // 1
@@ -83,33 +82,42 @@ class ParseDNSMessage extends Operation {
             {opName: "DSO",    opDesc: "DNS Stateful Operations"}   // 4
         ];
         let opText;
-        if (dnsMessage.Header.OPCODE < 7) {
-            opText = `${dnsOperations[dnsMessage.Header.OPCODE].opName}: ${dnsOperations[dnsMessage.Header.OPCODE].opDesc}`;
+        if (OPCODE < 7) {
+            opText = `${dnsOperations[OPCODE].opName} - ${dnsOperations[OPCODE].opDesc}`;
         } else {
             opText = "Unknown operation";
         }
+        dnsMessage.Header.OPCODE = `${opText} (${OPCODE})`;
 
-        dnsMessage.Header.AA = (input[2] >> 2) & 1;
-        const isAuthoritativeAnswer = `Server is ${(dnsMessage.Header.AA === 0) ? "not " : ""}an authority for domain`;
+        const TC = (inputBytes[2] >> 1) & 1;
+        const isTruncated = `Message is ${(TC === 0) ? "not " : ""}truncated`;
+        dnsMessage.Header.TC = `${isTruncated} (${TC})`;
 
-        dnsMessage.Header.TC = (input[2] >> 1) & 1;
-        const isTruncated = `Response message is ${(dnsMessage.Header.TC === 0) ? "not " : ""}truncated`;
+        const RD = inputBytes[2] & 1;
+        const isRecursionDesired = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
+        dnsMessage.Header.RD = `${isRecursionDesired} (${RD})`;
 
-        dnsMessage.Header.RD = input[2] & 1;
-        const isRecursionDesired = `Do${dnsMessage.Header.RD === 1 ? "" : "n't do"} query recursevly`;
+        if (QR === 1) {
+            const AA = (inputBytes[2] >> 2) & 1;
+            const isAuthoritativeAnswer = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
+            dnsMessage.Header.AA = `${isAuthoritativeAnswer} (${AA})`;
 
-        dnsMessage.Header.RA = input[3] >> 7;
-        const isRecursionAvailable = `Server can${(dnsMessage.Header.RA === 1) ? "" : "n't"} do recursive queries`;
+            const RA = inputBytes[3] >> 7;
+            const isRecursionAvailable = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
+            dnsMessage.Header.RA = `${isRecursionAvailable} (${RA})`;
 
-        dnsMessage.Header.Z = (input[3] >> 6) & 1;
+            const AD = (inputBytes[3] >> 5) & 1;
+            const isAuthenticated = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
+            dnsMessage.Header.AD = `${isAuthenticated} (${AD})`;
 
-        dnsMessage.Header.AD = (input[4] >> 5) & 1;
-        const inAuthenticated = `"Answer/authority portion was ${(dnsMessage.Header.AD === 1) ? "" : "not "}authenticated by the server"`;
+            const CD = (inputBytes[3] >> 4) & 1;
+            const isCheckDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
+            dnsMessage.Header.CD = `${isCheckDisabled} (${CD})`;
+        }
 
-        dnsMessage.Header.CD = (input[4] >> 4) & 1;
-        const isCheckDisabled = `Non-authenticated data is ${(dnsMessage.Header.CD === 1) ? "" : "not "}acceptable`;
+        dnsMessage.Header.Z = (inputBytes[3] >> 6) & 1;
 
-        dnsMessage.Header.RCODE = input[4] & 0b1111;
+        const errorCode = inputBytes[3] & 0b1111;
         const dnsErrors = [
             {errorName: "NoError",    errorDesc: "No Error"},                                           // 0
             {errorName: "FormErr",    errorDesc: "Format Error"},                                       // 1
@@ -137,14 +145,19 @@ class ParseDNSMessage extends Operation {
             {errorName: "BADCOOKIE",  errorDesc: "Bad/missing Server Cookie"}                           // 23
         ];
         let errorText;
-        const RCODE = dnsMessage.Header.RCODE;
-        if (RCODE < 24) {
-            errorText = `${dnsErrors[RCODE].errorName}: ${dnsErrors[RCODE].errorDesc}`;
-        } else if (RCODE >= 24 && RCODE < 3840 || RCODE >= 4096 && RCODE <= 65534) {
+        if (errorCode < 24) {
+            errorText = `${dnsErrors[errorCode].errorName} - ${dnsErrors[errorCode].errorDesc}`;
+        } else if (errorCode >= 24 && errorCode < 3840 || errorCode >= 4096 && errorCode <= 65534) {
             errorText = "No error assigned to this code";
-        } else if (RCODE >= 3841 && RCODE <= 4095) {
+        } else if (errorCode >= 3841 && errorCode <= 4095) {
             errorText = "Error code reserved for private use";
         }
+        dnsMessage.Header.RCODE = `${errorText} (${errorCode})`;
+
+        dnsMessage.Header.QDCOUNT = inputBytes[4] * 0x100 + inputBytes[5];
+        dnsMessage.Header.ANCOUNT = inputBytes[6] * 0x100 + inputBytes[7];
+        dnsMessage.Header.NSCOUNT = inputBytes[8] * 0x100 + inputBytes[9];
+        dnsMessage.Header.ARCOUNT = inputBytes[10] * 0x100 + inputBytes[11];
 
         const output = dnsMessage;
         return output;
