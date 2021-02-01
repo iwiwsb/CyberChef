@@ -50,12 +50,55 @@ class ParseDNSMessage extends Operation {
             inputBytes = Utils.strToByteArray(input);
         }
 
+        const resourseRecordTypes = [
+            {typeName: "",      typeDesc: ""},                                       // 0
+            {typeName: "A",     typeDesc: "A host address"},                         // 1
+            {typeName: "NS",    typeDesc: "An authoritative name server"},           // 2
+            {typeName: "MD",    typeDesc: "A mail destination"},                     // 3
+            {typeName: "MF",    typeDesc: "A mail forwarder"},                       // 4
+            {typeName: "CNAME", typeDesc: "The canonical name for an alias"},        // 5
+            {typeName: "SOA",   typeDesc: "Marks the start of a zone of authority"}, // 6
+            {typeName: "MB",    typeDesc: "A mailbox domain name"},                  // 7
+            {typeName: "MG",    typeDesc: "A mail group member"},                    // 8
+            {typeName: "MR",    typeDesc: "A mail rename domain name"},              // 9
+            {typeName: "NULL",  typeDesc: "A null RR"},                              // 10
+            {typeName: "WKS",   typeDesc: "A well known service description"},       // 11
+            {typeName: "PTR",   typeDesc: "A domain name pointer"},                  // 12
+            {typeName: "HINFO", typeDesc: "Host information"},                       // 13
+            {typeName: "MINFO", typeDesc: "Mailbox or mail list information"},       // 14
+            {typeName: "MX",    typeDesc: "Mail exchange"},                          // 15
+            {typeName: "TXT",   typeDesc: "Text strings"}                            // 16
+        ];
+
+        /**
+         * Class for Question structure
+         */
+        class Question {
+            /**
+             * Question structure constructor
+             * @param {string} questionName
+             * @param {number} questionType
+             * @param {number} questionClass
+             */
+            constructor(questionName, questionType, questionClass) {
+                this.questionName = questionName;
+                this.questionType = questionType;
+                this.questionClass = questionClass;
+            }
+        }
+
         /**
          * Class for Resourse Record structure
          */
         class ResourceRecord {
             /**
              * Resourse Record structure constructor
+             * @param name
+             * @param type
+             * @param dataClass
+             * @param timeToLive
+             * @param resourseDataLength
+             * @param resourseData
              */
             constructor(name, type, dataClass, timeToLive, resourseDataLength, resourseData) {
                 this.type = type;
@@ -67,20 +110,22 @@ class ParseDNSMessage extends Operation {
         }
 
         const DomainNameSystemMessage = new Object();
-        DomainNameSystemMessage.Header = new Object();
-        DomainNameSystemMessage.Question = new Object();
-        DomainNameSystemMessage.Answer = new ResourceRecord();
+        DomainNameSystemMessage.header = new Object();
+        DomainNameSystemMessage.question = [];
+        DomainNameSystemMessage.answer = [];
+        DomainNameSystemMessage.authority = [];
+        DomainNameSystemMessage.additional = [];
 
 
         if (inputBytes.length < 12) {
             throw new OperationError("Need 12 bytes for a DNS Message Header");
         }
 
-        DomainNameSystemMessage.Header.id = inputBytes[0] * 0x100 + inputBytes[1];
+        DomainNameSystemMessage.header.id = inputBytes[0] * 0x100 + inputBytes[1];
 
         const QR = inputBytes[2] >> 7;
         const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
-        DomainNameSystemMessage.Header.messageType = `${qrType} (${QR})`;
+        DomainNameSystemMessage.header.messageType = `${qrType} (${QR})`;
 
         const OPCODE = (inputBytes[2] >> 3) & 0b1111;
         const dnsOperations = [
@@ -98,33 +143,33 @@ class ParseDNSMessage extends Operation {
         } else {
             opText = "Unknown operation";
         }
-        DomainNameSystemMessage.Header.opCode = `${opText} (${OPCODE})`;
+        DomainNameSystemMessage.header.opCode = `${opText} (${OPCODE})`;
 
         const TC = (inputBytes[2] >> 1) & 1;
         const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
-        DomainNameSystemMessage.Header.truncation = `${truncationDesc} (${TC})`;
+        DomainNameSystemMessage.header.truncation = `${truncationDesc} (${TC})`;
 
         const RD = inputBytes[2] & 1;
         const recursionDesiredDesc = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
-        DomainNameSystemMessage.Header.recursionDesired = `${recursionDesiredDesc} (${RD})`;
+        DomainNameSystemMessage.header.recursionDesired = `${recursionDesiredDesc} (${RD})`;
 
         // True only for response messages
         if (QR === 1) {
             const AA = (inputBytes[2] >> 2) & 1;
             const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
-            DomainNameSystemMessage.Header.authoritativeAnswer = `${authoritativeAnswerDesc} (${AA})`;
+            DomainNameSystemMessage.header.authoritativeAnswer = `${authoritativeAnswerDesc} (${AA})`;
 
             const RA = inputBytes[3] >> 7;
             const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
-            DomainNameSystemMessage.Header.recursionAvailable = `${recursionAvailableDesc} (${RA})`;
+            DomainNameSystemMessage.header.recursionAvailable = `${recursionAvailableDesc} (${RA})`;
 
             const AD = (inputBytes[3] >> 5) & 1;
             const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
-            DomainNameSystemMessage.Header.authenticData = `${authenticDataDesc} (${AD})`;
+            DomainNameSystemMessage.header.authenticData = `${authenticDataDesc} (${AD})`;
 
             const CD = (inputBytes[3] >> 4) & 1;
             const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
-            DomainNameSystemMessage.Header.checkDisabled = `${checkDisabled} (${CD})`;
+            DomainNameSystemMessage.header.checkDisabled = `${checkDisabled} (${CD})`;
 
             const RCODE = inputBytes[3] & 0b1111;
 
@@ -166,7 +211,7 @@ class ParseDNSMessage extends Operation {
             const dnsSecretKeyTransactNotAuthResponse = {responseName: "NotAuth", errorDesc: "Not Authorized"}; // 9
 
             // Response described in RFC6891
-            const dnsExtensionBadVersResponse = {responseName: "BADVERS",  errorDesc: "Bad OPT Version"}; // 16
+            const dnsExtensionBadVersResponse = {responseName: "BADVERS", errorDesc: "Bad OPT Version"}; // 16
 
             let errorText;
             if (RCODE < 24) {
@@ -176,14 +221,41 @@ class ParseDNSMessage extends Operation {
             } else if (RCODE >= 3841 && RCODE <= 4095) {
                 errorText = "Error code reserved for private use";
             }
-            DomainNameSystemMessage.Header.responseCode = `${errorText} (${RCODE})`;
+            DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
         }
 
-        DomainNameSystemMessage.Header.Z = (inputBytes[3] >> 6) & 1;
-        DomainNameSystemMessage.Header.QDCOUNT = inputBytes[4] * 0x100 + inputBytes[5];
-        DomainNameSystemMessage.Header.ANCOUNT = inputBytes[6] * 0x100 + inputBytes[7];
-        DomainNameSystemMessage.Header.NSCOUNT = inputBytes[8] * 0x100 + inputBytes[9];
-        DomainNameSystemMessage.Header.ARCOUNT = inputBytes[10] * 0x100 + inputBytes[11];
+        DomainNameSystemMessage.header.Z = (inputBytes[3] >> 6) & 1;
+        const QDCOUNT = inputBytes[4] * 0x100 + inputBytes[5];
+        const ANCOUNT = inputBytes[6] * 0x100 + inputBytes[7];
+        const NSCOUNT = inputBytes[8] * 0x100 + inputBytes[9];
+        const ARCOUNT = inputBytes[10] * 0x100 + inputBytes[11];
+
+        DomainNameSystemMessage.header.questionsCount = QDCOUNT;
+        DomainNameSystemMessage.header.answersCount = ANCOUNT;
+        DomainNameSystemMessage.header.authorityRecordsCount = NSCOUNT;
+        DomainNameSystemMessage.header.additionalRecordsCount = ARCOUNT;
+
+        let index = 12;
+        const domainNameLabels = [];
+        let QNAME = "";
+
+        do {
+            const labelLength = inputBytes[index];
+            index = index + 1;
+            const label = inputBytes.slice(index, labelLength).map(x => fromHex(x)).join("");
+            domainNameLabels.push(label);
+            index += labelLength;
+            QNAME = domainNameLabels.join(".");
+        } while (inputBytes[index] !== 0);
+
+        if (index % 2 !== 0) {
+            index += 16 - index % 2;
+        }
+
+        const QTYPE = inputBytes[index] * 0x100 + inputBytes[index += 1];
+        const QCLASS = inputBytes[index] * 0x100 + inputBytes[index += 1];
+
+        DomainNameSystemMessage.question = new Question(QNAME, QTYPE, QCLASS);
 
         const output = DomainNameSystemMessage;
         return output;
