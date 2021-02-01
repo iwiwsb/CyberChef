@@ -163,7 +163,7 @@ class ParseDNSMessage extends Operation {
             ];
 
             // Response described in RFC8495
-            const dnsUpdateNotAuthResponse = {responseName: "NotAuth", errorDesc: "Not Authorized"}; // 9
+            const dnsSecretKeyTransactNotAuthResponse = {responseName: "NotAuth", errorDesc: "Not Authorized"}; // 9
 
             // Response described in RFC6891
             const dnsExtensionBadVersResponse = {responseName: "BADVERS",  errorDesc: "Bad OPT Version"}; // 16
