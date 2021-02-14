@@ -327,7 +327,7 @@ class ParseDNSMessage extends Operation {
 
         let index = 12;
 
-        for (let qIndex = 0; qIndex < QDCOUNT; qIndex++) {
+        for (let q = 0; q < QDCOUNT; q++) {
             const domainNameLabels = [];
             let QNAME = "";
 
