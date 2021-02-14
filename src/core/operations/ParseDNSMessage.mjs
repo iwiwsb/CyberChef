@@ -50,24 +50,113 @@ class ParseDNSMessage extends Operation {
             inputBytes = Utils.strToByteArray(input);
         }
 
+        /**
+         *
+         * @param len
+         */
+        function genetateUnassignedRRTypes(len) {
+            const unassignedTypesArr = [];
+            for (let i = 0; i < len; i++) {
+                unassignedTypesArr.push({typeName: "Unassigned", typeDesc: ""});
+            }
+            return unassignedTypesArr;
+        }
+
         const resourseRecordTypes = [
-            {typeName: "",      typeDesc: ""},                                       // 0
-            {typeName: "A",     typeDesc: "A host address"},                         // 1
-            {typeName: "NS",    typeDesc: "An authoritative name server"},           // 2
-            {typeName: "MD",    typeDesc: "A mail destination"},                     // 3
-            {typeName: "MF",    typeDesc: "A mail forwarder"},                       // 4
-            {typeName: "CNAME", typeDesc: "The canonical name for an alias"},        // 5
-            {typeName: "SOA",   typeDesc: "Marks the start of a zone of authority"}, // 6
-            {typeName: "MB",    typeDesc: "A mailbox domain name"},                  // 7
-            {typeName: "MG",    typeDesc: "A mail group member"},                    // 8
-            {typeName: "MR",    typeDesc: "A mail rename domain name"},              // 9
-            {typeName: "NULL",  typeDesc: "A null RR"},                              // 10
-            {typeName: "WKS",   typeDesc: "A well known service description"},       // 11
-            {typeName: "PTR",   typeDesc: "A domain name pointer"},                  // 12
-            {typeName: "HINFO", typeDesc: "Host information"},                       // 13
-            {typeName: "MINFO", typeDesc: "Mailbox or mail list information"},       // 14
-            {typeName: "MX",    typeDesc: "Mail exchange"},                          // 15
-            {typeName: "TXT",   typeDesc: "Text strings"}                            // 16
+            {typeName: "",           typeDesc: ""},                                                     // 0
+            {typeName: "A",          typeDesc: "A host address"},                                       // 1
+            {typeName: "NS",         typeDesc: "An authoritative name server"},                         // 2
+            {typeName: "MD",         typeDesc: "A mail destination"},                                   // 3
+            {typeName: "MF",         typeDesc: "A mail forwarder"},                                     // 4
+            {typeName: "CNAME",      typeDesc: "The canonical name for an alias"},                      // 5
+            {typeName: "SOA",        typeDesc: "Marks the start of a zone of authority"},               // 6
+            {typeName: "MB",         typeDesc: "A mailbox domain name"},                                // 7
+            {typeName: "MG",         typeDesc: "A mail group member"},                                  // 8
+            {typeName: "MR",         typeDesc: "A mail rename domain name"},                            // 9
+            {typeName: "NULL",       typeDesc: "A null RR"},                                            // 10
+            {typeName: "WKS",        typeDesc: "A well known service description"},                     // 11
+            {typeName: "PTR",        typeDesc: "A domain name pointer"},                                // 12
+            {typeName: "HINFO",      typeDesc: "Host information"},                                     // 13
+            {typeName: "MINFO",      typeDesc: "Mailbox or mail list information"},                     // 14
+            {typeName: "MX",         typeDesc: "Mail exchange"},                                        // 15
+            {typeName: "TXT",        typeDesc: "Text strings"},                                         // 16
+            {typeName: "RP",         typeDesc: "Responsible Person"},                                   // 17
+            {typeName: "AFSDB",      typeDesc: "AFS Data Base location"},                               // 18
+            {typeName: "X25",        typeDesc: "X.25 PSDN address"},                                    // 19
+            {typeName: "ISDN",       typeDesc: "ISDN address"},                                         // 20
+            {typeName: "RT",         typeDesc: "Route Through"},                                        // 21
+            {typeName: "NSAP",       typeDesc: "NSAP address, NSAP style A record"},                    // 22
+            {typeName: "NSAP-PTR",   typeDesc: "Domain name pointer, NSAP style"},                      // 23
+            {typeName: "SIG",        typeDesc: "Security signature"},                                   // 24
+            {typeName: "KEY",        typeDesc: "Security key"},                                         // 25
+            {typeName: "PX",         typeDesc: "X.400 mail mapping information"},                       // 26
+            {typeName: "GPOS",       typeDesc: "Geographical Position"},                                // 27
+            {typeName: "AAAA",       typeDesc: "IPv6 Address"},                                         // 28
+            {typeName: "LOC",        typeDesc: "Location Information"},                                 // 29
+            {typeName: "NXT",        typeDesc: "Next Domain (OBSOLETE)"},                               // 30
+            {typeName: "EID",        typeDesc: "Endpoint Identifier"},                                  // 31
+            {typeName: "NIMLOC",     typeDesc: "Nimrod Locator"},                                       // 32
+            {typeName: "SRV",        typeDesc: "Server Selection"},                                     // 33
+            {typeName: "ATMA",       typeDesc: "ATM Address"},                                          // 34
+            {typeName: "NAPTR",      typeDesc: "Naming Authority Pointer"},                             // 35
+            {typeName: "KX",         typeDesc: "Key Exchanger"},                                        // 36
+            {typeName: "CERT",       typeDesc: "CERT"},                                                 // 37
+            {typeName: "A6",         typeDesc: "A6 (OBSOLETE)"},                                        // 38
+            {typeName: "DNAME",      typeDesc: "DNAME	"},                                             // 39
+            {typeName: "SINK",       typeDesc: "SINK"},                                                 // 40
+            {typeName: "OPT",        typeDesc: "OPT"},                                                  // 41
+            {typeName: "APL",        typeDesc: "APL"},                                                  // 42
+            {typeName: "DS",         typeDesc: "Delegation Signer"},                                    // 43
+            {typeName: "SSHFP",      typeDesc: "SSH Key Fingerprint"},                                  // 44
+            {typeName: "IPSECKEY",   typeDesc: "IPSECKEY"},                                             // 45
+            {typeName: "RRSIG",      typeDesc: "RRSIG"},                                                // 46
+            {typeName: "NSEC",       typeDesc: "NSEC"},                                                 // 47
+            {typeName: "DNSKEY",     typeDesc: "DNSKEY"},                                               // 48
+            {typeName: "DHCID",      typeDesc: "DHCID"},                                                // 49
+            {typeName: "NSEC3",      typeDesc: "NSEC3"},                                                // 50
+            {typeName: "NSEC3PARAM", typeDesc: "NSEC3PARAM"},                                           // 51
+            {typeName: "TLSA",       typeDesc: "TLSA"},                                                 // 52
+            {typeName: "SMIMEA",     typeDesc: "S/MIME cert association"},                              // 53
+            {typeName: "Unassigned", typeDesc: ""},                                                     // 54
+            {typeName: "HIP",        typeDesc: "Host Identity Protocol"},                               // 55
+            {typeName: "NINFO",      typeDesc: "NINFO"},                                                // 56
+            {typeName: "RKEY",       typeDesc: "RKEY"},                                                 // 57
+            {typeName: "TALINK",     typeDesc: "Trust Anchor LINK"},                                    // 58
+            {typeName: "CDS",        typeDesc: "Child DS"},                                             // 59
+            {typeName: "CDNSKEY",    typeDesc: "DNSKEY(s) the Child wants reflected in DS"},            // 60
+            {typeName: "OPENPGPKEY", typeDesc: "OpenPGP Key"},                                          // 61
+            {typeName: "CSYNC",      typeDesc: "Child-To-Parent Synchronization"},                      // 62
+            {typeName: "ZONEMD",     typeDesc: "Message Digest Over Zone Data"},                        // 63
+            {typeName: "SVCB",       typeDesc: "Service Binding"},                                      // 64
+            {typeName: "HTTPS",      typeDesc: "HTTPS Binding"},                                        // 65
+            ...genetateUnassignedRRTypes(34),                                                             // 66-98
+            {typeName: "SPF",        typeDesc: ""},                                                     // 99
+            {typeName: "UINFO",      typeDesc: ""},                                                     // 100
+            {typeName: "UID",        typeDesc: ""},                                                     // 101
+            {typeName: "GID",        typeDesc: ""},                                                     // 102
+            {typeName: "UNSPEC",     typeDesc: ""},                                                     // 103
+            {typeName: "NID",        typeDesc: ""},                                                     // 104
+            {typeName: "L32",        typeDesc: ""},                                                     // 105
+            {typeName: "L64",        typeDesc: ""},                                                     // 106
+            {typeName: "LP",         typeDesc: ""},                                                     // 107
+            {typeName: "EUI48",      typeDesc: "EUI-48 address"},                                       // 108
+            {typeName: "EUI64",      typeDesc: "EUI-64 address"},                                       // 109
+            ...genetateUnassignedRRTypes(139),                                                            // 110-248
+            {typeName: "TKEY",       typeDesc: "Transaction Key"},                                      // 249
+            {typeName: "TSIG",       typeDesc: "Transaction Signature"},                                // 250
+            {typeName: "IXFR",       typeDesc: "Incremental transfer"},                                 // 251
+            {typeName: "AXFR",       typeDesc: "A request for a transfer of an entire zone"},           // 252
+            {typeName: "MAILB",      typeDesc: "A request for mailbox-related records (MB, MG or MR)"}, // 253
+            {typeName: "MAILA",      typeDesc: "A request for mail agent RRs (Obsolete - see MX)"},     // 254
+            {typeName: "*",          typeDesc: "A request for all records"},                            // 255
+        ];
+
+        const resourseRecordClasses = [
+            {className: "",   classDesc: ""},                                                                      // 0
+            {className: "IN", classDesc: "Internet"},                                                              // 1
+            {className: "CS", classDesc: "CSNET class (Obsolete - used only for examples in some obsolete RFCs)"}, // 2
+            {className: "CH", classDesc: "CHAOS class"},                                                           // 3
+            {className: "HS", classDesc: "Hesiod [Dyer 87]"},                                                      // 4
         ];
 
         /**
@@ -101,6 +190,7 @@ class ParseDNSMessage extends Operation {
              * @param resourseData
              */
             constructor(name, type, dataClass, timeToLive, resourseDataLength, resourseData) {
+                this.name = name;
                 this.type = type;
                 this.dataClass = dataClass;
                 this.timeToLive = timeToLive;
@@ -207,7 +297,7 @@ class ParseDNSMessage extends Operation {
                 {responseName: "BADCOOKIE",  errorDesc: "Bad/missing Server Cookie"},         // 23
             ];
 
-            // Response described in RFC8495
+            // Response described in RFC8945
             const dnsSecretKeyTransactNotAuthResponse = {responseName: "NotAuth", errorDesc: "Not Authorized"}; // 9
 
             // Response described in RFC6891
@@ -236,26 +326,29 @@ class ParseDNSMessage extends Operation {
         DomainNameSystemMessage.header.additionalRecordsCount = ARCOUNT;
 
         let index = 12;
-        const domainNameLabels = [];
-        let QNAME = "";
 
-        do {
-            const labelLength = inputBytes[index];
-            index = index + 1;
-            const label = inputBytes.slice(index, labelLength).map(x => fromHex(x)).join("");
-            domainNameLabels.push(label);
-            index += labelLength;
-            QNAME = domainNameLabels.join(".");
-        } while (inputBytes[index] !== 0);
+        for (let qIndex = 0; qIndex < QDCOUNT; qIndex++) {
+            const domainNameLabels = [];
+            let QNAME = "";
 
-        if (index % 2 !== 0) {
-            index += 16 - index % 2;
+            do {
+                const labelLength = inputBytes[index];
+                index = index + 1;
+                const label = inputBytes.slice(index, labelLength).map(x => fromHex(x)).join("");
+                domainNameLabels.push(label);
+                index += labelLength;
+                QNAME = domainNameLabels.join(".");
+            } while (inputBytes[index] !== 0);
+
+            if (index % 2 !== 0) {
+                index += 16 - index % 2;
+            }
+
+            const QTYPE = inputBytes[index] * 0x100 + inputBytes[index += 1];
+            const QCLASS = inputBytes[index] * 0x100 + inputBytes[index += 1];
+
+            DomainNameSystemMessage.question.push(new Question(QNAME, QTYPE, QCLASS));
         }
-
-        const QTYPE = inputBytes[index] * 0x100 + inputBytes[index += 1];
-        const QCLASS = inputBytes[index] * 0x100 + inputBytes[index += 1];
-
-        DomainNameSystemMessage.question = new Question(QNAME, QTYPE, QCLASS);
 
         const output = DomainNameSystemMessage;
         return output;
