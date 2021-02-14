@@ -54,7 +54,7 @@ class ParseDNSMessage extends Operation {
          *
          * @param len
          */
-        function genetateUnassignedRRTypes(len) {
+        function generateUnassignedRRTypes(len) {
             const unassignedTypesArr = [];
             for (let i = 0; i < len; i++) {
                 unassignedTypesArr.push({typeName: "Unassigned", typeDesc: ""});
@@ -129,7 +129,7 @@ class ParseDNSMessage extends Operation {
             {typeName: "ZONEMD",     typeDesc: "Message Digest Over Zone Data"},                        // 63
             {typeName: "SVCB",       typeDesc: "Service Binding"},                                      // 64
             {typeName: "HTTPS",      typeDesc: "HTTPS Binding"},                                        // 65
-            ...genetateUnassignedRRTypes(34),                                                             // 66-98
+            ...generateUnassignedRRTypes(34),                                                           // 66-98
             {typeName: "SPF",        typeDesc: ""},                                                     // 99
             {typeName: "UINFO",      typeDesc: ""},                                                     // 100
             {typeName: "UID",        typeDesc: ""},                                                     // 101
@@ -141,7 +141,7 @@ class ParseDNSMessage extends Operation {
             {typeName: "LP",         typeDesc: ""},                                                     // 107
             {typeName: "EUI48",      typeDesc: "EUI-48 address"},                                       // 108
             {typeName: "EUI64",      typeDesc: "EUI-64 address"},                                       // 109
-            ...genetateUnassignedRRTypes(139),                                                            // 110-248
+            ...generateUnassignedRRTypes(139),                                                          // 110-248
             {typeName: "TKEY",       typeDesc: "Transaction Key"},                                      // 249
             {typeName: "TSIG",       typeDesc: "Transaction Signature"},                                // 250
             {typeName: "IXFR",       typeDesc: "Incremental transfer"},                                 // 251
