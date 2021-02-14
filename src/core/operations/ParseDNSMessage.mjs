@@ -340,10 +340,6 @@ class ParseDNSMessage extends Operation {
                 QNAME = domainNameLabels.join(".");
             } while (inputBytes[index] !== 0);
 
-            if (index % 2 !== 0) {
-                index += 16 - index % 2;
-            }
-
             const QTYPE = inputBytes[index] * 0x100 + inputBytes[index += 1];
             const QCLASS = inputBytes[index] * 0x100 + inputBytes[index += 1];
 
