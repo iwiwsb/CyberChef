@@ -276,11 +276,11 @@ class ParseDNSMessage extends Operation {
         let offset = 12;
 
         for (let q = 0; q < QDCOUNT; q++) {
-            const domain = parseDomainName({name: "", nextLabelOffset: offset }, inputBytes);
-            const QNAME = domain.name;
-            offset += domain.nextLabelOffset;
+            const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+            const QNAME = domain.labelsList.join(".");
+            offset = domain.nextLabelOffset;
             const QTYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-            const QCLASS = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
+            const QCLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
 
             DomainNameSystemMessage.question.push(new Question(QNAME, QTYPE, QCLASS));
         }
@@ -306,25 +306,32 @@ function generateUnassignedRRTypes(len) {
 
 /**
  * @private
- * @param {{name: string, nextLabelOffset: number}} domain
+ * @param {{labelsList: string[], nextLabelOffset: number}} domain
  * @param {number[]} inputBytes
- * @returns {{name: string, nextLabelOffset: number}}
+ * @returns {{labelsList: string[], nextLabelOffset: number}}
  */
 function parseDomainName(domain, inputBytes) {
-    let domainName = domain.name;
+    const domainLabelsList = domain.labelsList;
     if (inputBytes[domain.nextLabelOffset] !== 0) {
         switch (inputBytes[domain.nextLabelOffset] >> 6) {
             case 0:
-                domainName += inputBytes.slice(domain.nextLabelOffset + 1, inputBytes[domain.nextLabelOffset]).map(x => fromHex(x)).join("");
-                domainName += ".";
-                domain += parseDomainName({ name: domainName, nextLabelOffset: domainName.length + 1 }, inputBytes);
+                domainLabelsList
+                    .push(inputBytes.slice(domain.nextLabelOffset + 1, domain.nextLabelOffset + inputBytes[domain.nextLabelOffset] + 1)
+                        .map(x => String.fromCharCode(x)).join(""));
+                domain = parseDomainName(
+                    {
+                        labelsList: domainLabelsList,
+                        nextLabelOffset: domain.nextLabelOffset + domainLabelsList[domainLabelsList.length - 1].length + 1
+                    }, inputBytes);
                 break;
             case 0b11:
-                domain += parseDomainName({ name: domainName, nextLabelOffset: domain.nextLabelOffset + 1 }, inputBytes);
+                domain = parseDomainName({ labelsList: domainLabelsList, nextLabelOffset: domain.nextLabelOffset + 1 }, inputBytes);
                 break;
             default:
                 break;
         }
+    } else {
+        domain.nextLabelOffset += 1;
     }
     return domain;
 }
