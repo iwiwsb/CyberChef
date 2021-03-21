@@ -251,15 +251,9 @@ class ParseDNSMessage extends Operation {
             // Response described in RFC6891
             const dnsExtensionBadVersResponse = { responseName: "BADVERS", errorDesc: "Bad OPT Version" }; // 16
 
-            let errorText;
-            if (RCODE < 24) {
-                errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
-            } else if (RCODE >= 24 && RCODE < 3840 || RCODE >= 4096 && RCODE <= 65534) {
-                errorText = "No error assigned to this code";
-            } else if (RCODE >= 3841 && RCODE <= 4095) {
-                errorText = "Error code reserved for private use";
-            }
-            DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
+            // let errorText;
+            // errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
+            // DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
         }
 
         DomainNameSystemMessage.header.Z = (inputBytes[3] >> 6) & 1;
@@ -283,6 +277,21 @@ class ParseDNSMessage extends Operation {
             const QCLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
 
             DomainNameSystemMessage.question.push(new Question(QNAME, QTYPE, QCLASS));
+        }
+
+        for (let an = 0; an < ANCOUNT; an++) {
+            const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+            const NAME = domain.labelsList.join(".");
+            offset = domain.nextLabelOffset;
+            const TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
+            const CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+            const TTL = inputBytes[offset += 1] * 0x1000000 +
+                        inputBytes[offset += 1] * 0x10000 +
+                        inputBytes[offset += 1] * 0x100 +
+                        inputBytes[offset += 1];
+            const RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+            // const RDATA
+            // DomainNameSystemMessage.answer.push(new Answer(NAME, TYPE, CLASS, TTL, RDLENGTH));
         }
 
         const output = DomainNameSystemMessage;
@@ -377,5 +386,20 @@ class ResourceRecord {
         this.resourseData = resourseData;
     }
 }
+
+/**
+ * @private
+ */
+class Answer extends ResourceRecord {}
+
+/**
+ * @private
+ */
+class Authority extends ResourceRecord {}
+
+/**
+ * @private
+ */
+class Additional extends ResourceRecord {}
 
 export default ParseDNSMessage;
