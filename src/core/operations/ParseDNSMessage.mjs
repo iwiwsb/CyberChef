@@ -183,7 +183,7 @@ class ParseDNSMessage extends Operation {
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
-            const answer = new ResourceRecordEx(inputBytes, offset);
+            const answer = new ResourceRecord(inputBytes.slice(offset));
             DomainNameSystemMessage.answer.push(answer);
             offset += answer.length;
         }
@@ -258,29 +258,51 @@ class Question {
 }
 
 /**
- * Class for Resourse Record structure
+ * Class for Resource Record structure
  * @private
  */
 class ResourceRecord {
     /**
-     * Resourse Record structure constructor
-     * @param name
-     * @param type
-     * @param dataClass
-     * @param timeToLive
-     * @param resourseDataLength
-     * @param resourseData
+     * Resource Record structure constructor
+     * @param inputBytes
+     * @param offset
      */
-    constructor(name, type, dataClass, timeToLive, resourseDataLength, resourseData) {
-        this.name = name;
-        this.type = type;
-        this.dataClass = dataClass;
-        this.timeToLive = timeToLive;
-        this.resourseDataLength = resourseDataLength;
-        this.resourseData = resourseData;
+    constructor(inputBytes) {
+        let offset = 0;
+        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+        const NAME = domain.labelsList.join(".");
+        offset = domain.nextLabelOffset;
+        const TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
+        const CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        const TTL = inputBytes[offset += 1] * 0x1000000 +
+                    inputBytes[offset += 1] * 0x10000 +
+                    inputBytes[offset += 1] * 0x100 +
+                    inputBytes[offset += 1];
+        const RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        const RDATA = inputBytes.slice(offset += 1, offset += RDLENGTH + 1);
+
+        this.name = NAME;
+
+        const typeObj = this.resourceRecordTypes[TYPE];
+        this.type = `${typeObj.typeName}: ${typeObj.typeDesc} (${TYPE})`;
+
+        const dataClassObj = this.resourceRecordClasses[CLASS];
+        this.dataClass = `${dataClassObj.className}: ${dataClassObj.classDesc} (${CLASS})`;
+
+        this.timeToLive = TTL;
+        this.resourceDataLength = RDLENGTH;
+        this.resourceData = RDATA;
+        this._length = offset;
     }
 
-    static resourseRecordTypes = [
+     /**
+     *
+     */
+    get length() {
+        return this._length;
+    }
+
+    static resourceRecordTypes = [
         { typeName: "", typeDesc: "" },                                                          // 0
         { typeName: "A", typeDesc: "A host address" },                                           // 1
         { typeName: "NS", typeDesc: "An authoritative name server" },                            // 2
@@ -369,44 +391,13 @@ class ResourceRecord {
         { typeName: "*", typeDesc: "A request for all records" },                                // 255
     ];
 
-    static resourseRecordClasses = [
+    static resourceRecordClasses = [
         { className: "", classDesc: "" },                                                                        // 0
         { className: "IN", classDesc: "Internet" },                                                              // 1
         { className: "CS", classDesc: "CSNET class (Obsolete - used only for examples in some obsolete RFCs)" }, // 2
         { className: "CH", classDesc: "CHAOS class" },                                                           // 3
         { className: "HS", classDesc: "Hesiod [Dyer 87]" },                                                      // 4
     ];
-}
-
-/**
- * @private
- */
-class ResourceRecordEx extends ResourceRecord {
-    /**
-     *
-     */
-    constructor(inputBytes, offset) {
-        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
-        const NAME = domain.labelsList.join(".");
-        offset = domain.nextLabelOffset;
-        const TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-        const CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        const TTL = inputBytes[offset += 1] * 0x1000000 +
-                    inputBytes[offset += 1] * 0x10000 +
-                    inputBytes[offset += 1] * 0x100 +
-                    inputBytes[offset += 1];
-        const RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        const RDATA = inputBytes.slice(offset += 1, offset += RDLENGTH + 1);
-        super(NAME, TYPE, CLASS, TTL, RDLENGTH, RDATA);
-        this._length = offset;
-    }
-
-    /**
-     *
-     */
-    get length() {
-        return this._length;
-    }
 }
 
 export default ParseDNSMessage;
