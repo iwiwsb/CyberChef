@@ -5,6 +5,8 @@
  */
 
 import HTMLIngredient from "./HTMLIngredient.mjs";
+import Utils from "../core/Utils.mjs";
+import url from "url";
 
 
 /**
@@ -72,7 +74,7 @@ class HTMLOperation {
      * @returns {string}
      */
     toFullHtml() {
-        let html = `<div class="op-title">${this.name}</div>
+        let html = `<div class="op-title">${Utils.escapeHtml(this.name)}</div>
         <div class="ingredients">`;
 
         for (let i = 0; i < this.ingList.length; i++) {
@@ -97,12 +99,13 @@ class HTMLOperation {
      * @param {[[number]]} descIdxs - Indexes of the search strings in the operation description [[start, length]]
      */
     highlightSearchStrings(nameIdxs, descIdxs) {
-        if (nameIdxs.length) {
+        if (nameIdxs.length && typeof nameIdxs[0][0] === "number") {
             let opName = "",
                 pos = 0;
 
             nameIdxs.forEach(idxs => {
                 const [start, length] = idxs;
+                if (typeof start !== "number") return;
                 opName += this.name.slice(pos, start) + "<b>" +
                     this.name.slice(start, start + length) + "</b>";
                 pos = start + length;
@@ -111,7 +114,7 @@ class HTMLOperation {
             this.name = opName;
         }
 
-        if (this.description && descIdxs.length) {
+        if (this.description && descIdxs.length && descIdxs[0][0] >= 0) {
             // Find HTML tag offsets
             const re = /<[^>]+>/g;
             let match;
@@ -145,21 +148,29 @@ class HTMLOperation {
 /**
  * Given a URL for a Wikipedia (or other wiki) page, this function returns a link to that page.
  *
- * @param {string} url
+ * @param {string} urlStr
  * @returns {string}
  */
-function titleFromWikiLink(url) {
-    const splitURL = url.split("/");
-    if (splitURL.indexOf("wikipedia.org") < 0 && splitURL.indexOf("forensicswiki.org") < 0) {
-        // Not a wiki link, return full URL
-        return `<a href='${url}' target='_blank'>More Information<i class='material-icons inline-icon'>open_in_new</i></a>`;
+function titleFromWikiLink(urlStr) {
+    const urlObj = url.parse(urlStr);
+    let wikiName = "",
+        pageTitle = "";
+
+    switch (urlObj.host) {
+        case "forensicswiki.xyz":
+            wikiName = "Forensics Wiki";
+            pageTitle = urlObj.query.substr(6).replace(/_/g, " "); // Chop off 'title='
+            break;
+        case "wikipedia.org":
+            wikiName = "Wikipedia";
+            pageTitle = urlObj.pathname.substr(6).replace(/_/g, " "); // Chop off '/wiki/'
+            break;
+        default:
+            // Not a wiki link, return full URL
+            return `<a href='${urlStr}' target='_blank'>More Information<i class='material-icons inline-icon'>open_in_new</i></a>`;
     }
 
-    const wikiName = splitURL.indexOf("forensicswiki.org") < 0 ? "Wikipedia" : "Forensics Wiki";
-
-    const pageTitle = decodeURIComponent(splitURL[splitURL.length - 1])
-        .replace(/_/g, " ");
-    return `<a href='${url}' target='_blank'>${pageTitle}<i class='material-icons inline-icon'>open_in_new</i></a> on ${wikiName}`;
+    return `<a href='${urlObj.href}' target='_blank'>${pageTitle}<i class='material-icons inline-icon'>open_in_new</i></a> on ${wikiName}`;
 }
 
 export default HTMLOperation;

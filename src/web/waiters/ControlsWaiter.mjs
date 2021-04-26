@@ -100,9 +100,9 @@ class ControlsWaiter {
         const includeRecipe = document.getElementById("save-link-recipe-checkbox").checked;
         const includeInput = document.getElementById("save-link-input-checkbox").checked;
         const saveLinkEl = document.getElementById("save-link");
-        const saveLink = this.generateStateUrl(includeRecipe, includeInput, recipeConfig);
+        const saveLink = this.generateStateUrl(includeRecipe, includeInput, null, recipeConfig);
 
-        saveLinkEl.innerHTML = Utils.truncate(saveLink, 120);
+        saveLinkEl.innerHTML = Utils.escapeHtml(Utils.truncate(saveLink, 120));
         saveLinkEl.setAttribute("href", saveLink);
     }
 
@@ -128,17 +128,19 @@ class ControlsWaiter {
         includeRecipe = includeRecipe && (recipeConfig.length > 0);
 
         // If we don't get passed an input, get it from the current URI
-        if (input === null) {
+        if (input === null && includeInput) {
             const params = this.app.getURIParams();
             if (params.input) {
                 includeInput = true;
                 input = params.input;
+            } else {
+                includeInput = false;
             }
         }
 
         const params = [
             includeRecipe ? ["recipe", recipeStr] : undefined,
-            includeInput ? ["input", input] : undefined,
+            includeInput ? ["input", Utils.escapeHtml(input)] : undefined,
         ];
 
         const hash = params

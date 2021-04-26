@@ -61,7 +61,9 @@
             "Parse TLV",
             "CSV to JSON",
             "JSON to CSV",
-            "Avro to JSON"
+            "Avro to JSON",
+            "CBOR Encode",
+            "CBOR Decode"
         ]
     },
     {
@@ -239,6 +241,7 @@
             "Pad lines",
             "Find / Replace",
             "Regular expression",
+            "Fuzzy Match",
             "Offset checker",
             "Hamming Distance",
             "Convert distance",
@@ -268,6 +271,7 @@
             "Windows Filetime to UNIX Timestamp",
             "UNIX Timestamp to Windows Filetime",
             "Extract dates",
+            "Get Time",
             "Sleep"
         ]
     },
@@ -287,6 +291,7 @@
             "JPath expression",
             "CSS selector",
             "Extract EXIF",
+            "Extract ID3",
             "Extract Files"
         ]
     },
