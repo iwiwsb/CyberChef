@@ -26,6 +26,7 @@ class ParseDNSMessage extends Operation {
         this.infoURL = "https://wikipedia.org/wiki/Domain_Name_System";
         this.inputType = "string";
         this.outputType = "JSON";
+        //this.presentType = "html";
         this.args = [
             {
                 "name": "Input format",
@@ -66,7 +67,7 @@ class ParseDNSMessage extends Operation {
 
         const QR = inputBytes[2] >> 7;
         const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
-        DomainNameSystemMessage.header.messageType = `${qrType} (${QR})`;
+        DomainNameSystemMessage.header.messageType = QR;
 
         const OPCODE = (inputBytes[2] >> 3) & 0b1111;
         const dnsOperations = [
@@ -78,41 +79,42 @@ class ParseDNSMessage extends Operation {
             { opName: "UPDATE", opDesc: "Dynamic update" },           // 5
             { opName: "DSO", opDesc: "DNS Stateful Operations" }      // 6
         ];
-        let opText;
+        let opText= "";
         if (OPCODE < 7) {
             opText = `${dnsOperations[OPCODE].opDesc} (${dnsOperations[OPCODE].opName})`;
         } else {
             opText = "Unknown operation";
         }
-        DomainNameSystemMessage.header.opCode = `${opText} (${OPCODE})`;
+        DomainNameSystemMessage.header.opCode = OPCODE;
 
         const TC = (inputBytes[2] >> 1) & 1;
         const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
-        DomainNameSystemMessage.header.truncation = `${truncationDesc} (${TC})`;
+        DomainNameSystemMessage.header.truncation = TC;
 
         const RD = inputBytes[2] & 1;
         const recursionDesiredDesc = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
-        DomainNameSystemMessage.header.recursionDesired = `${recursionDesiredDesc} (${RD})`;
+        DomainNameSystemMessage.header.recursionDesired = RD;
 
         // True only for response messages
         if (QR === 1) {
             const AA = (inputBytes[2] >> 2) & 1;
             const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
-            DomainNameSystemMessage.header.authoritativeAnswer = `${authoritativeAnswerDesc} (${AA})`;
+            DomainNameSystemMessage.header.authoritativeAnswer = AA;
 
             const RA = inputBytes[3] >> 7;
             const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
-            DomainNameSystemMessage.header.recursionAvailable = `${recursionAvailableDesc} (${RA})`;
+            DomainNameSystemMessage.header.recursionAvailable = RA;
 
             const AD = (inputBytes[3] >> 5) & 1;
             const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
-            DomainNameSystemMessage.header.authenticData = `${authenticDataDesc} (${AD})`;
+            DomainNameSystemMessage.header.authenticData = AD;
 
             const CD = (inputBytes[3] >> 4) & 1;
             const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
-            DomainNameSystemMessage.header.checkDisabled = `${checkDisabled} (${CD})`;
+            DomainNameSystemMessage.header.checkDisabled = CD;
 
             const RCODE = inputBytes[3] & 0b1111;
+            DomainNameSystemMessage.header.responseCode = RCODE;
 
             // Responses 0-5 described in RFC1035
             // Responses 6-10 described in RFC2136
@@ -173,23 +175,37 @@ class ParseDNSMessage extends Operation {
         let offset = 12;
 
         for (let q = 0; q < QDCOUNT; q++) {
-            const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
-            const QNAME = domain.labelsList.join(".");
-            offset = domain.nextLabelOffset;
-            const QTYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-            const QCLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-
-            DomainNameSystemMessage.question.push(new Question(QNAME, QTYPE, QCLASS));
+            const question = new Question(inputBytes.slice(offset));
+            DomainNameSystemMessage.question.push(question);
+            offset += question.len;
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
             const answer = new ResourceRecord(inputBytes.slice(offset));
             DomainNameSystemMessage.answer.push(answer);
-            offset += answer.length;
+            offset += answer.len;
         }
 
-        const output = DomainNameSystemMessage;
-        return output;
+        for (let ns = 0; ns < NSCOUNT; ns++) {
+            const authority = new ResourceRecord(inputBytes.slice(offset));
+            DomainNameSystemMessage.answer.push(authority);
+            offset += authority.len;
+        }
+
+        for (let ar = 0; ar < ARCOUNT; ar++) {
+            const additional = new ResourceRecord(inputBytes.slice(offset));
+            DomainNameSystemMessage.answer.push(additional);
+            offset += additional.len;
+        }
+
+        return DomainNameSystemMessage;
+    }
+
+    /**
+     *
+     */
+    present(dnsMessage) {
+
     }
 
 }
@@ -250,10 +266,14 @@ class Question {
      * @param {number} questionType
      * @param {number} questionClass
      */
-    constructor(questionName, questionType, questionClass) {
-        this.questionName = questionName;
-        this.questionType = questionType;
-        this.questionClass = questionClass;
+    constructor(inputBytes) {
+        let offset = 0;
+        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+        this.QNAME = domain.labelsList.join(".");
+        offset += domain.nextLabelOffset;
+        this.QTYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
+        this.QCLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        this.len = offset + 1;
     }
 }
 
@@ -270,134 +290,116 @@ class ResourceRecord {
     constructor(inputBytes) {
         let offset = 0;
         const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
-        const NAME = domain.labelsList.join(".");
+        this.NAME = domain.labelsList.join(".");
         offset = domain.nextLabelOffset;
-        const TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-        const CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        const TTL = inputBytes[offset += 1] * 0x1000000 +
-                    inputBytes[offset += 1] * 0x10000 +
-                    inputBytes[offset += 1] * 0x100 +
-                    inputBytes[offset += 1];
-        const RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        const RDATA = inputBytes.slice(offset += 1, offset += RDLENGTH + 1);
-
-        this.name = NAME;
-
-        const typeObj = this.resourceRecordTypes[TYPE];
-        this.type = `${typeObj.typeName}: ${typeObj.typeDesc} (${TYPE})`;
-
-        const dataClassObj = this.resourceRecordClasses[CLASS];
-        this.dataClass = `${dataClassObj.className}: ${dataClassObj.classDesc} (${CLASS})`;
-
-        this.timeToLive = TTL;
-        this.resourceDataLength = RDLENGTH;
-        this.resourceData = RDATA;
-        this._length = offset;
+        this.TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
+        this.CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        this.TTL = inputBytes[offset += 1] * 0x1000000 +
+                   inputBytes[offset += 1] * 0x10000 +
+                   inputBytes[offset += 1] * 0x100 +
+                   inputBytes[offset += 1];
+        this.RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        offset += 1;
+        this.RDATA = inputBytes.slice(offset, offset += this.RDLENGTH + 1);
+        this.len = offset;
     }
 
-     /**
-     *
-     */
-    get length() {
-        return this._length;
-    }
+    // static resourceRecordTypes = [
+    //     { typeName: "", typeDesc: "" },                                                          // 0
+    //     { typeName: "A", typeDesc: "A host address" },                                           // 1
+    //     { typeName: "NS", typeDesc: "An authoritative name server" },                            // 2
+    //     { typeName: "MD", typeDesc: "A mail destination" },                                      // 3
+    //     { typeName: "MF", typeDesc: "A mail forwarder" },                                        // 4
+    //     { typeName: "CNAME", typeDesc: "The canonical name for an alias" },                      // 5
+    //     { typeName: "SOA", typeDesc: "Marks the start of a zone of authority" },                 // 6
+    //     { typeName: "MB", typeDesc: "A mailbox domain name" },                                   // 7
+    //     { typeName: "MG", typeDesc: "A mail group member" },                                     // 8
+    //     { typeName: "MR", typeDesc: "A mail rename domain name" },                               // 9
+    //     { typeName: "NULL", typeDesc: "A null RR" },                                             // 10
+    //     { typeName: "WKS", typeDesc: "A well known service description" },                       // 11
+    //     { typeName: "PTR", typeDesc: "A domain name pointer" },                                  // 12
+    //     { typeName: "HINFO", typeDesc: "Host information" },                                     // 13
+    //     { typeName: "MINFO", typeDesc: "Mailbox or mail list information" },                     // 14
+    //     { typeName: "MX", typeDesc: "Mail exchange" },                                           // 15
+    //     { typeName: "TXT", typeDesc: "Text strings" },                                           // 16
+    //     { typeName: "RP", typeDesc: "Responsible Person" },                                      // 17
+    //     { typeName: "AFSDB", typeDesc: "AFS Data Base location" },                               // 18
+    //     { typeName: "X25", typeDesc: "X.25 PSDN address" },                                      // 19
+    //     { typeName: "ISDN", typeDesc: "ISDN address" },                                          // 20
+    //     { typeName: "RT", typeDesc: "Route Through" },                                           // 21
+    //     { typeName: "NSAP", typeDesc: "NSAP address, NSAP style A record" },                     // 22
+    //     { typeName: "NSAP-PTR", typeDesc: "Domain name pointer, NSAP style" },                   // 23
+    //     { typeName: "SIG", typeDesc: "Security signature" },                                     // 24
+    //     { typeName: "KEY", typeDesc: "Security key" },                                           // 25
+    //     { typeName: "PX", typeDesc: "X.400 mail mapping information" },                          // 26
+    //     { typeName: "GPOS", typeDesc: "Geographical Position" },                                 // 27
+    //     { typeName: "AAAA", typeDesc: "IPv6 Address" },                                          // 28
+    //     { typeName: "LOC", typeDesc: "Location Information" },                                   // 29
+    //     { typeName: "NXT", typeDesc: "Next Domain (OBSOLETE)" },                                 // 30
+    //     { typeName: "EID", typeDesc: "Endpoint Identifier" },                                    // 31
+    //     { typeName: "NIMLOC", typeDesc: "Nimrod Locator" },                                      // 32
+    //     { typeName: "SRV", typeDesc: "Server Selection" },                                       // 33
+    //     { typeName: "ATMA", typeDesc: "ATM Address" },                                           // 34
+    //     { typeName: "NAPTR", typeDesc: "Naming Authority Pointer" },                             // 35
+    //     { typeName: "KX", typeDesc: "Key Exchanger" },                                           // 36
+    //     { typeName: "CERT", typeDesc: "CERT" },                                                  // 37
+    //     { typeName: "A6", typeDesc: "A6 (OBSOLETE)" },                                           // 38
+    //     { typeName: "DNAME", typeDesc: "DNAME	" },                                             // 39
+    //     { typeName: "SINK", typeDesc: "SINK" },                                                  // 40
+    //     { typeName: "OPT", typeDesc: "OPT" },                                                    // 41
+    //     { typeName: "APL", typeDesc: "APL" },                                                    // 42
+    //     { typeName: "DS", typeDesc: "Delegation Signer" },                                       // 43
+    //     { typeName: "SSHFP", typeDesc: "SSH Key Fingerprint" },                                  // 44
+    //     { typeName: "IPSECKEY", typeDesc: "IPSECKEY" },                                          // 45
+    //     { typeName: "RRSIG", typeDesc: "RRSIG" },                                                // 46
+    //     { typeName: "NSEC", typeDesc: "NSEC" },                                                  // 47
+    //     { typeName: "DNSKEY", typeDesc: "DNSKEY" },                                              // 48
+    //     { typeName: "DHCID", typeDesc: "DHCID" },                                                // 49
+    //     { typeName: "NSEC3", typeDesc: "NSEC3" },                                                // 50
+    //     { typeName: "NSEC3PARAM", typeDesc: "NSEC3PARAM" },                                      // 51
+    //     { typeName: "TLSA", typeDesc: "TLSA" },                                                  // 52
+    //     { typeName: "SMIMEA", typeDesc: "S/MIME cert association" },                             // 53
+    //     { typeName: "Unassigned", typeDesc: "" },                                                // 54
+    //     { typeName: "HIP", typeDesc: "Host Identity Protocol" },                                 // 55
+    //     { typeName: "NINFO", typeDesc: "NINFO" },                                                // 56
+    //     { typeName: "RKEY", typeDesc: "RKEY" },                                                  // 57
+    //     { typeName: "TALINK", typeDesc: "Trust Anchor LINK" },                                   // 58
+    //     { typeName: "CDS", typeDesc: "Child DS" },                                               // 59
+    //     { typeName: "CDNSKEY", typeDesc: "DNSKEY(s) the Child wants reflected in DS" },          // 60
+    //     { typeName: "OPENPGPKEY", typeDesc: "OpenPGP Key" },                                     // 61
+    //     { typeName: "CSYNC", typeDesc: "Child-To-Parent Synchronization" },                      // 62
+    //     { typeName: "ZONEMD", typeDesc: "Message Digest Over Zone Data" },                       // 63
+    //     { typeName: "SVCB", typeDesc: "Service Binding" },                                       // 64
+    //     { typeName: "HTTPS", typeDesc: "HTTPS Binding" },                                        // 65
+    //     ...generateUnassignedRRTypes(34),                                                        // 66-98
+    //     { typeName: "SPF", typeDesc: "" },                                                       // 99
+    //     { typeName: "UINFO", typeDesc: "" },                                                     // 100
+    //     { typeName: "UID", typeDesc: "" },                                                       // 101
+    //     { typeName: "GID", typeDesc: "" },                                                       // 102
+    //     { typeName: "UNSPEC", typeDesc: "" },                                                    // 103
+    //     { typeName: "NID", typeDesc: "" },                                                       // 104
+    //     { typeName: "L32", typeDesc: "" },                                                       // 105
+    //     { typeName: "L64", typeDesc: "" },                                                       // 106
+    //     { typeName: "LP", typeDesc: "" },                                                        // 107
+    //     { typeName: "EUI48", typeDesc: "EUI-48 address" },                                       // 108
+    //     { typeName: "EUI64", typeDesc: "EUI-64 address" },                                       // 109
+    //     ...generateUnassignedRRTypes(139),                                                       // 110-248
+    //     { typeName: "TKEY", typeDesc: "Transaction Key" },                                       // 249
+    //     { typeName: "TSIG", typeDesc: "Transaction Signature" },                                 // 250
+    //     { typeName: "IXFR", typeDesc: "Incremental transfer" },                                  // 251
+    //     { typeName: "AXFR", typeDesc: "A request for a transfer of an entire zone" },            // 252
+    //     { typeName: "MAILB", typeDesc: "A request for mailbox-related records (MB, MG or MR)" }, // 253
+    //     { typeName: "MAILA", typeDesc: "A request for mail agent RRs (Obsolete - see MX)" },     // 254
+    //     { typeName: "*", typeDesc: "A request for all records" },                                // 255
+    // ];
 
-    static resourceRecordTypes = [
-        { typeName: "", typeDesc: "" },                                                          // 0
-        { typeName: "A", typeDesc: "A host address" },                                           // 1
-        { typeName: "NS", typeDesc: "An authoritative name server" },                            // 2
-        { typeName: "MD", typeDesc: "A mail destination" },                                      // 3
-        { typeName: "MF", typeDesc: "A mail forwarder" },                                        // 4
-        { typeName: "CNAME", typeDesc: "The canonical name for an alias" },                      // 5
-        { typeName: "SOA", typeDesc: "Marks the start of a zone of authority" },                 // 6
-        { typeName: "MB", typeDesc: "A mailbox domain name" },                                   // 7
-        { typeName: "MG", typeDesc: "A mail group member" },                                     // 8
-        { typeName: "MR", typeDesc: "A mail rename domain name" },                               // 9
-        { typeName: "NULL", typeDesc: "A null RR" },                                             // 10
-        { typeName: "WKS", typeDesc: "A well known service description" },                       // 11
-        { typeName: "PTR", typeDesc: "A domain name pointer" },                                  // 12
-        { typeName: "HINFO", typeDesc: "Host information" },                                     // 13
-        { typeName: "MINFO", typeDesc: "Mailbox or mail list information" },                     // 14
-        { typeName: "MX", typeDesc: "Mail exchange" },                                           // 15
-        { typeName: "TXT", typeDesc: "Text strings" },                                           // 16
-        { typeName: "RP", typeDesc: "Responsible Person" },                                      // 17
-        { typeName: "AFSDB", typeDesc: "AFS Data Base location" },                               // 18
-        { typeName: "X25", typeDesc: "X.25 PSDN address" },                                      // 19
-        { typeName: "ISDN", typeDesc: "ISDN address" },                                          // 20
-        { typeName: "RT", typeDesc: "Route Through" },                                           // 21
-        { typeName: "NSAP", typeDesc: "NSAP address, NSAP style A record" },                     // 22
-        { typeName: "NSAP-PTR", typeDesc: "Domain name pointer, NSAP style" },                   // 23
-        { typeName: "SIG", typeDesc: "Security signature" },                                     // 24
-        { typeName: "KEY", typeDesc: "Security key" },                                           // 25
-        { typeName: "PX", typeDesc: "X.400 mail mapping information" },                          // 26
-        { typeName: "GPOS", typeDesc: "Geographical Position" },                                 // 27
-        { typeName: "AAAA", typeDesc: "IPv6 Address" },                                          // 28
-        { typeName: "LOC", typeDesc: "Location Information" },                                   // 29
-        { typeName: "NXT", typeDesc: "Next Domain (OBSOLETE)" },                                 // 30
-        { typeName: "EID", typeDesc: "Endpoint Identifier" },                                    // 31
-        { typeName: "NIMLOC", typeDesc: "Nimrod Locator" },                                      // 32
-        { typeName: "SRV", typeDesc: "Server Selection" },                                       // 33
-        { typeName: "ATMA", typeDesc: "ATM Address" },                                           // 34
-        { typeName: "NAPTR", typeDesc: "Naming Authority Pointer" },                             // 35
-        { typeName: "KX", typeDesc: "Key Exchanger" },                                           // 36
-        { typeName: "CERT", typeDesc: "CERT" },                                                  // 37
-        { typeName: "A6", typeDesc: "A6 (OBSOLETE)" },                                           // 38
-        { typeName: "DNAME", typeDesc: "DNAME	" },                                             // 39
-        { typeName: "SINK", typeDesc: "SINK" },                                                  // 40
-        { typeName: "OPT", typeDesc: "OPT" },                                                    // 41
-        { typeName: "APL", typeDesc: "APL" },                                                    // 42
-        { typeName: "DS", typeDesc: "Delegation Signer" },                                       // 43
-        { typeName: "SSHFP", typeDesc: "SSH Key Fingerprint" },                                  // 44
-        { typeName: "IPSECKEY", typeDesc: "IPSECKEY" },                                          // 45
-        { typeName: "RRSIG", typeDesc: "RRSIG" },                                                // 46
-        { typeName: "NSEC", typeDesc: "NSEC" },                                                  // 47
-        { typeName: "DNSKEY", typeDesc: "DNSKEY" },                                              // 48
-        { typeName: "DHCID", typeDesc: "DHCID" },                                                // 49
-        { typeName: "NSEC3", typeDesc: "NSEC3" },                                                // 50
-        { typeName: "NSEC3PARAM", typeDesc: "NSEC3PARAM" },                                      // 51
-        { typeName: "TLSA", typeDesc: "TLSA" },                                                  // 52
-        { typeName: "SMIMEA", typeDesc: "S/MIME cert association" },                             // 53
-        { typeName: "Unassigned", typeDesc: "" },                                                // 54
-        { typeName: "HIP", typeDesc: "Host Identity Protocol" },                                 // 55
-        { typeName: "NINFO", typeDesc: "NINFO" },                                                // 56
-        { typeName: "RKEY", typeDesc: "RKEY" },                                                  // 57
-        { typeName: "TALINK", typeDesc: "Trust Anchor LINK" },                                   // 58
-        { typeName: "CDS", typeDesc: "Child DS" },                                               // 59
-        { typeName: "CDNSKEY", typeDesc: "DNSKEY(s) the Child wants reflected in DS" },          // 60
-        { typeName: "OPENPGPKEY", typeDesc: "OpenPGP Key" },                                     // 61
-        { typeName: "CSYNC", typeDesc: "Child-To-Parent Synchronization" },                      // 62
-        { typeName: "ZONEMD", typeDesc: "Message Digest Over Zone Data" },                       // 63
-        { typeName: "SVCB", typeDesc: "Service Binding" },                                       // 64
-        { typeName: "HTTPS", typeDesc: "HTTPS Binding" },                                        // 65
-        ...generateUnassignedRRTypes(34),                                                        // 66-98
-        { typeName: "SPF", typeDesc: "" },                                                       // 99
-        { typeName: "UINFO", typeDesc: "" },                                                     // 100
-        { typeName: "UID", typeDesc: "" },                                                       // 101
-        { typeName: "GID", typeDesc: "" },                                                       // 102
-        { typeName: "UNSPEC", typeDesc: "" },                                                    // 103
-        { typeName: "NID", typeDesc: "" },                                                       // 104
-        { typeName: "L32", typeDesc: "" },                                                       // 105
-        { typeName: "L64", typeDesc: "" },                                                       // 106
-        { typeName: "LP", typeDesc: "" },                                                        // 107
-        { typeName: "EUI48", typeDesc: "EUI-48 address" },                                       // 108
-        { typeName: "EUI64", typeDesc: "EUI-64 address" },                                       // 109
-        ...generateUnassignedRRTypes(139),                                                       // 110-248
-        { typeName: "TKEY", typeDesc: "Transaction Key" },                                       // 249
-        { typeName: "TSIG", typeDesc: "Transaction Signature" },                                 // 250
-        { typeName: "IXFR", typeDesc: "Incremental transfer" },                                  // 251
-        { typeName: "AXFR", typeDesc: "A request for a transfer of an entire zone" },            // 252
-        { typeName: "MAILB", typeDesc: "A request for mailbox-related records (MB, MG or MR)" }, // 253
-        { typeName: "MAILA", typeDesc: "A request for mail agent RRs (Obsolete - see MX)" },     // 254
-        { typeName: "*", typeDesc: "A request for all records" },                                // 255
-    ];
-
-    static resourceRecordClasses = [
-        { className: "", classDesc: "" },                                                                        // 0
-        { className: "IN", classDesc: "Internet" },                                                              // 1
-        { className: "CS", classDesc: "CSNET class (Obsolete - used only for examples in some obsolete RFCs)" }, // 2
-        { className: "CH", classDesc: "CHAOS class" },                                                           // 3
-        { className: "HS", classDesc: "Hesiod [Dyer 87]" },                                                      // 4
-    ];
+    // resourceRecordClasses = [
+    //     { className: "", classDesc: "" },                                                                        // 0
+    //     { className: "IN", classDesc: "Internet" },                                                              // 1
+    //     { className: "CS", classDesc: "CSNET class (Obsolete - used only for examples in some obsolete RFCs)" }, // 2
+    //     { className: "CH", classDesc: "CHAOS class" },                                                           // 3
+    //     { className: "HS", classDesc: "Hesiod [Dyer 87]" },                                                      // 4
+    // ];
 }
 
 export default ParseDNSMessage;
