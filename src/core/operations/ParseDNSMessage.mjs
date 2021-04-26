@@ -201,12 +201,12 @@ class ParseDNSMessage extends Operation {
         return DomainNameSystemMessage;
     }
 
-    /**
-     *
-     */
-    present(dnsMessage) {
+    // /**
+    //  *
+    //  */
+    // present(dnsMessage) {
 
-    }
+    // }
 
 }
 
