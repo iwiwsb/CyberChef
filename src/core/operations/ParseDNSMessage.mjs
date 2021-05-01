@@ -53,8 +53,8 @@ class ParseDNSMessage extends Operation {
 
         const DomainNameSystemMessage = new Object();
         DomainNameSystemMessage.header = new Object();
-        DomainNameSystemMessage.question = [];
-        DomainNameSystemMessage.answer = [];
+        DomainNameSystemMessage.questions = [];
+        DomainNameSystemMessage.answers = [];
         DomainNameSystemMessage.authority = [];
         DomainNameSystemMessage.additional = [];
 
@@ -175,26 +175,26 @@ class ParseDNSMessage extends Operation {
         let offset = 12;
 
         for (let q = 0; q < QDCOUNT; q++) {
-            const question = new Question(inputBytes.slice(offset));
-            DomainNameSystemMessage.question.push(question);
+            const question = new Question(inputBytes, offset);
+            DomainNameSystemMessage.questions.push(question);
             offset += question.len;
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
-            const answer = new ResourceRecord(inputBytes.slice(offset));
-            DomainNameSystemMessage.answer.push(answer);
+            const answer = new ResourceRecord(inputBytes, offset);
+            DomainNameSystemMessage.answers.push(answer);
             offset += answer.len;
         }
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
-            const authority = new ResourceRecord(inputBytes.slice(offset));
-            DomainNameSystemMessage.answer.push(authority);
+            const authority = new ResourceRecord(inputBytes, offset);
+            DomainNameSystemMessage.authority.push(authority);
             offset += authority.len;
         }
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
-            const additional = new ResourceRecord(inputBytes.slice(offset));
-            DomainNameSystemMessage.answer.push(additional);
+            const additional = new ResourceRecord(inputBytes, offset);
+            DomainNameSystemMessage.additional.push(additional);
             offset += additional.len;
         }
 
@@ -262,18 +262,17 @@ function parseDomainName(domain, inputBytes) {
 class Question {
     /**
      * Question structure constructor
-     * @param {string} questionName
-     * @param {number} questionType
-     * @param {number} questionClass
+     * @param {number[]} dnsMessageBytes
+     * @param {number} offset
      */
-    constructor(inputBytes) {
-        let offset = 0;
-        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+    constructor(dnsMessageBytes, offset) {
+        const questionStart = offset;
+        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
         this.QNAME = domain.labelsList.join(".");
-        offset += domain.nextLabelOffset;
-        this.QTYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-        this.QCLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        this.len = offset + 1;
+        offset = domain.nextLabelOffset;
+        this.QTYPE = dnsMessageBytes[offset] * 0x100 + dnsMessageBytes[offset += 1];
+        this.QCLASS = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
+        this.len = offset - questionStart + 1;
     }
 }
 
@@ -284,24 +283,24 @@ class Question {
 class ResourceRecord {
     /**
      * Resource Record structure constructor
-     * @param inputBytes
+     * @param dnsMessageBytes
      * @param offset
      */
-    constructor(inputBytes) {
-        let offset = 0;
-        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, inputBytes);
+    constructor(dnsMessageBytes, offset) {
+        const rrStart = 0;
+        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
         this.NAME = domain.labelsList.join(".");
         offset = domain.nextLabelOffset;
-        this.TYPE = inputBytes[offset] * 0x100 + inputBytes[offset += 1];
-        this.CLASS = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
-        this.TTL = inputBytes[offset += 1] * 0x1000000 +
-                   inputBytes[offset += 1] * 0x10000 +
-                   inputBytes[offset += 1] * 0x100 +
-                   inputBytes[offset += 1];
-        this.RDLENGTH = inputBytes[offset += 1] * 0x100 + inputBytes[offset += 1];
+        this.TYPE = dnsMessageBytes[offset] * 0x100 + dnsMessageBytes[offset += 1];
+        this.CLASS = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
+        this.TTL = dnsMessageBytes[offset += 1] * 0x1000000 +
+                   dnsMessageBytes[offset += 1] * 0x10000 +
+                   dnsMessageBytes[offset += 1] * 0x100 +
+                   dnsMessageBytes[offset += 1];
+        this.RDLENGTH = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
         offset += 1;
-        this.RDATA = inputBytes.slice(offset, offset += this.RDLENGTH + 1);
-        this.len = offset;
+        this.RDATA = dnsMessageBytes.slice(offset, offset += this.RDLENGTH + 1);
+        this.len = offset - rrStart;
     }
 
     // static resourceRecordTypes = [
