@@ -26,7 +26,7 @@ class ParseDNSMessage extends Operation {
         this.infoURL = "https://wikipedia.org/wiki/Domain_Name_System";
         this.inputType = "string";
         this.outputType = "JSON";
-        //this.presentType = "html";
+        // this.presentType = "html";
         this.args = [
             {
                 "name": "Input format",
@@ -66,51 +66,51 @@ class ParseDNSMessage extends Operation {
         DomainNameSystemMessage.header.id = inputBytes[0] * 0x100 + inputBytes[1];
 
         const QR = inputBytes[2] >> 7;
-        const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
+        // const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
         DomainNameSystemMessage.header.messageType = QR;
 
         const OPCODE = (inputBytes[2] >> 3) & 0b1111;
-        const dnsOperations = [
-            { opName: "QUERY", opDesc: "A standard query" },          // 0
-            { opName: "IQUERY", opDesc: "An inverse query" },         // 1
-            { opName: "STATUS", opDesc: "A server status request" },  // 2
-            { opName: "Unassigned", opDesc: "" },                     // 3
-            { opName: "NOTIFY", opDesc: "Zone change notification" }, // 4
-            { opName: "UPDATE", opDesc: "Dynamic update" },           // 5
-            { opName: "DSO", opDesc: "DNS Stateful Operations" }      // 6
-        ];
-        let opText= "";
-        if (OPCODE < 7) {
-            opText = `${dnsOperations[OPCODE].opDesc} (${dnsOperations[OPCODE].opName})`;
-        } else {
-            opText = "Unknown operation";
-        }
+        // const dnsOperations = [
+        //     { opName: "QUERY", opDesc: "A standard query" },          // 0
+        //     { opName: "IQUERY", opDesc: "An inverse query" },         // 1
+        //     { opName: "STATUS", opDesc: "A server status request" },  // 2
+        //     { opName: "Unassigned", opDesc: "" },                     // 3
+        //     { opName: "NOTIFY", opDesc: "Zone change notification" }, // 4
+        //     { opName: "UPDATE", opDesc: "Dynamic update" },           // 5
+        //     { opName: "DSO", opDesc: "DNS Stateful Operations" }      // 6
+        // ];
+        // let opText= "";
+        // if (OPCODE < 7) {
+        //     opText = `${dnsOperations[OPCODE].opDesc} (${dnsOperations[OPCODE].opName})`;
+        // } else {
+        //     opText = "Unknown operation";
+        // }
         DomainNameSystemMessage.header.opCode = OPCODE;
 
         const TC = (inputBytes[2] >> 1) & 1;
-        const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
+        // const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
         DomainNameSystemMessage.header.truncation = TC;
 
         const RD = inputBytes[2] & 1;
-        const recursionDesiredDesc = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
+        // const recursionDesiredDesc = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
         DomainNameSystemMessage.header.recursionDesired = RD;
 
         // True only for response messages
         if (QR === 1) {
             const AA = (inputBytes[2] >> 2) & 1;
-            const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
+            // const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
             DomainNameSystemMessage.header.authoritativeAnswer = AA;
 
             const RA = inputBytes[3] >> 7;
-            const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
+            // const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
             DomainNameSystemMessage.header.recursionAvailable = RA;
 
             const AD = (inputBytes[3] >> 5) & 1;
-            const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
+            // const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
             DomainNameSystemMessage.header.authenticData = AD;
 
             const CD = (inputBytes[3] >> 4) & 1;
-            const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
+            // const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
             DomainNameSystemMessage.header.checkDisabled = CD;
 
             const RCODE = inputBytes[3] & 0b1111;
@@ -123,38 +123,38 @@ class ParseDNSMessage extends Operation {
             // Responses 19-21 described in RFC2930
             // Response 22 described in RFC8945
             // Response 23 described in RFC7873
-            const dnsResponses = [
-                { responseName: "NoError", errorDesc: "No Error" },                          // 0
-                { responseName: "FormErr", errorDesc: "Format Error" },                      // 1
-                { responseName: "ServFail", errorDesc: "Server Failure" },                   // 2
-                { responseName: "NXDomain", errorDesc: "Non-Existent Domain" },              // 3
-                { responseName: "NotImp", errorDesc: "Not Implemented" },                    // 4
-                { responseName: "Refused", errorDesc: "Query Refused" },                     // 5
-                { responseName: "YXDomain", errorDesc: "Name Exists when it should not" },   // 6
-                { responseName: "YXRRSet", errorDesc: "RR Set Exists when it should not" },  // 7
-                { responseName: "NXRRSet", errorDesc: "RR Set that should exist does not" }, // 8
-                { responseName: "NotAuth", errorDesc: "Server Not Authoritative for zone" }, // 9
-                { responseName: "NotZone", errorDesc: "Name not contained in zone" },        // 10
-                { responseName: "DSOTYPENI", errorDesc: "DSO-TYPE Not Implemented" },        // 11
-                { responseName: "Unassigned", errorDesc: "" },                               // 12
-                { responseName: "Unassigned", errorDesc: "" },                               // 13
-                { responseName: "Unassigned", errorDesc: "" },                               // 14
-                { responseName: "Unassigned", errorDesc: "" },                               // 15
-                { responseName: "BADSIG", errorDesc: "TSIG Signature Failure" },             // 16
-                { responseName: "BADKEY", errorDesc: "Key not recognized" },                 // 17
-                { responseName: "BADTIME", errorDesc: "Signature out of time window" },      // 18
-                { responseName: "BADMODE", errorDesc: "Bad TKEY Mode" },                     // 19
-                { responseName: "BADNAME", errorDesc: "Duplicate key name" },                // 20
-                { responseName: "BADALG", errorDesc: "Algorithm not supported" },            // 21
-                { responseName: "BADTRUNC", errorDesc: "Bad Truncation" },                   // 22
-                { responseName: "BADCOOKIE", errorDesc: "Bad/missing Server Cookie" },       // 23
-            ];
+            // const dnsResponses = [
+            //     { responseName: "NoError", errorDesc: "No Error" },                          // 0
+            //     { responseName: "FormErr", errorDesc: "Format Error" },                      // 1
+            //     { responseName: "ServFail", errorDesc: "Server Failure" },                   // 2
+            //     { responseName: "NXDomain", errorDesc: "Non-Existent Domain" },              // 3
+            //     { responseName: "NotImp", errorDesc: "Not Implemented" },                    // 4
+            //     { responseName: "Refused", errorDesc: "Query Refused" },                     // 5
+            //     { responseName: "YXDomain", errorDesc: "Name Exists when it should not" },   // 6
+            //     { responseName: "YXRRSet", errorDesc: "RR Set Exists when it should not" },  // 7
+            //     { responseName: "NXRRSet", errorDesc: "RR Set that should exist does not" }, // 8
+            //     { responseName: "NotAuth", errorDesc: "Server Not Authoritative for zone" }, // 9
+            //     { responseName: "NotZone", errorDesc: "Name not contained in zone" },        // 10
+            //     { responseName: "DSOTYPENI", errorDesc: "DSO-TYPE Not Implemented" },        // 11
+            //     { responseName: "Unassigned", errorDesc: "" },                               // 12
+            //     { responseName: "Unassigned", errorDesc: "" },                               // 13
+            //     { responseName: "Unassigned", errorDesc: "" },                               // 14
+            //     { responseName: "Unassigned", errorDesc: "" },                               // 15
+            //     { responseName: "BADSIG", errorDesc: "TSIG Signature Failure" },             // 16
+            //     { responseName: "BADKEY", errorDesc: "Key not recognized" },                 // 17
+            //     { responseName: "BADTIME", errorDesc: "Signature out of time window" },      // 18
+            //     { responseName: "BADMODE", errorDesc: "Bad TKEY Mode" },                     // 19
+            //     { responseName: "BADNAME", errorDesc: "Duplicate key name" },                // 20
+            //     { responseName: "BADALG", errorDesc: "Algorithm not supported" },            // 21
+            //     { responseName: "BADTRUNC", errorDesc: "Bad Truncation" },                   // 22
+            //     { responseName: "BADCOOKIE", errorDesc: "Bad/missing Server Cookie" },       // 23
+            // ];
 
             // Response described in RFC8945
-            const dnsSecretKeyTransactNotAuthResponse = { responseName: "NotAuth", errorDesc: "Not Authorized" }; // 9
+            // const dnsSecretKeyTransactNotAuthResponse = { responseName: "NotAuth", errorDesc: "Not Authorized" }; // 9
 
             // Response described in RFC6891
-            const dnsExtensionBadVersResponse = { responseName: "BADVERS", errorDesc: "Bad OPT Version" }; // 16
+            // const dnsExtensionBadVersResponse = { responseName: "BADVERS", errorDesc: "Bad OPT Version" }; // 16
 
             // let errorText;
             // errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
@@ -177,25 +177,25 @@ class ParseDNSMessage extends Operation {
         for (let q = 0; q < QDCOUNT; q++) {
             const question = new Question(inputBytes, offset);
             DomainNameSystemMessage.questions.push(question);
-            offset += question.len;
+            offset += question.length;
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
             const answer = new ResourceRecord(inputBytes, offset);
             DomainNameSystemMessage.answers.push(answer);
-            offset += answer.len;
+            offset += answer.length;
         }
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
             const authority = new ResourceRecord(inputBytes, offset);
             DomainNameSystemMessage.authority.push(authority);
-            offset += authority.len;
+            offset += authority.length;
         }
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
             const additional = new ResourceRecord(inputBytes, offset);
             DomainNameSystemMessage.additional.push(additional);
-            offset += additional.len;
+            offset += additional.length;
         }
 
         return DomainNameSystemMessage;
@@ -210,18 +210,18 @@ class ParseDNSMessage extends Operation {
 
 }
 
-/**
- * @private
- * @param {number} len
- * @returns {{typeName: string, typeDesc: string}}
- */
-function generateUnassignedRRTypes(len) {
-    const unassignedTypesArr = [];
-    for (let i = 0; i < len; i++) {
-        unassignedTypesArr.push({ typeName: "Unassigned", typeDesc: "" });
-    }
-    return unassignedTypesArr;
-}
+// /**
+//  * @private
+//  * @param {number} len
+//  * @returns {{typeName: string, typeDesc: string}}
+//  */
+// function generateUnassignedRRTypes(len) {
+//     const unassignedTypesArr = [];
+//     for (let i = 0; i < len; i++) {
+//         unassignedTypesArr.push({ typeName: "Unassigned", typeDesc: "" });
+//     }
+//     return unassignedTypesArr;
+// }
 
 /**
  * @private
@@ -232,22 +232,28 @@ function generateUnassignedRRTypes(len) {
 function parseDomainName(domain, inputBytes) {
     const domainLabelsList = domain.labelsList;
     if (inputBytes[domain.nextLabelOffset] !== 0) {
-        switch (inputBytes[domain.nextLabelOffset] >> 6) {
-            case 0:
-                domainLabelsList
-                    .push(inputBytes.slice(domain.nextLabelOffset + 1, domain.nextLabelOffset + inputBytes[domain.nextLabelOffset] + 1)
-                        .map(x => String.fromCharCode(x)).join(""));
-                domain = parseDomainName(
-                    {
-                        labelsList: domainLabelsList,
-                        nextLabelOffset: domain.nextLabelOffset + domainLabelsList[domainLabelsList.length - 1].length + 1
-                    }, inputBytes);
-                break;
-            case 0b11:
-                domain = parseDomainName({ labelsList: domainLabelsList, nextLabelOffset: domain.nextLabelOffset + 1 }, inputBytes);
-                break;
-            default:
-                break;
+        const leadingByte = inputBytes[domain.nextLabelOffset];
+        const firstTwoBits = leadingByte >> 6;
+        if (firstTwoBits === 0) {
+            domainLabelsList
+                .push(inputBytes.slice(domain.nextLabelOffset + 1, domain.nextLabelOffset + inputBytes[domain.nextLabelOffset] + 1)
+                    .map(x => String.fromCharCode(x)).join(""));
+            domain = parseDomainName(
+                {
+                    labelsList: domainLabelsList,
+                    nextLabelOffset: domain.nextLabelOffset + domainLabelsList[domainLabelsList.length - 1].length + 1
+                },
+                inputBytes);
+        } else if (firstTwoBits === 0b11) {
+            const prevOffset = domain.nextLabelOffset;
+            domain = parseDomainName(
+                {
+                    labelsList: domainLabelsList,
+                    nextLabelOffset: (leadingByte * 0x100 + inputBytes[domain.nextLabelOffset + 1]) & 0x3FF
+                },
+                inputBytes
+            );
+            domain.nextLabelOffset = prevOffset + 2;
         }
     } else {
         domain.nextLabelOffset += 1;
@@ -272,7 +278,7 @@ class Question {
         offset = domain.nextLabelOffset;
         this.QTYPE = dnsMessageBytes[offset] * 0x100 + dnsMessageBytes[offset += 1];
         this.QCLASS = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
-        this.len = offset - questionStart + 1;
+        this.length = offset - questionStart + 1;
     }
 }
 
@@ -287,7 +293,7 @@ class ResourceRecord {
      * @param offset
      */
     constructor(dnsMessageBytes, offset) {
-        const rrStart = 0;
+        const rrStart = offset;
         const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
         this.NAME = domain.labelsList.join(".");
         offset = domain.nextLabelOffset;
@@ -299,8 +305,8 @@ class ResourceRecord {
                    dnsMessageBytes[offset += 1];
         this.RDLENGTH = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
         offset += 1;
-        this.RDATA = dnsMessageBytes.slice(offset, offset += this.RDLENGTH + 1);
-        this.len = offset - rrStart;
+        this.RDATA = dnsMessageBytes.slice(offset, offset += this.RDLENGTH);
+        this.length = offset - rrStart;
     }
 
     // static resourceRecordTypes = [
