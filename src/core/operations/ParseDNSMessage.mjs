@@ -305,7 +305,16 @@ class ResourceRecord {
                    dnsMessageBytes[offset += 1];
         this.RDLENGTH = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
         offset += 1;
-        this.RDATA = dnsMessageBytes.slice(offset, offset += this.RDLENGTH);
+        const rdataOffset = offset;
+        const RDATA = dnsMessageBytes.slice(rdataOffset, offset += this.RDLENGTH);
+        if (this.TYPE === 1) {
+            this.Address = `${RDATA[0]}.${RDATA[1]}.${RDATA[2]}.${RDATA[3]}`;
+        } else if (this.TYPE === 2) {
+            const nameServer = parseDomainName({labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            this.NameServer = nameServer.labelsList.join(".");
+        } else {
+            this.RDATA = RDATA;
+        }
         this.length = offset - rrStart;
     }
 
