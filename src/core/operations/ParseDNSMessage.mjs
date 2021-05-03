@@ -312,6 +312,29 @@ class ResourceRecord {
         } else if (this.TYPE === 2) {
             const nameServer = parseDomainName({labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
             this.NameServer = nameServer.labelsList.join(".");
+        } else if (this.TYPE === 3 || this.TYPE === 4) {
+            const MADNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            this.MADNAME = MADNAME.labelsList.join(".");
+        } else if (this.TYPE === 5) {
+            const CNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            this.CNAME = CNAME.labelsList.join(".");
+        } else if (this.TYPE === 6) {
+            const MNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            const rnameOffset = MNAME.nextLabelOffset;
+            const RNAME = parseDomainName({ labelsList: [], nextLabelOffset: rnameOffset}, dnsMessageBytes);
+            let offset = RNAME.nextLabelOffset - rdataOffset;
+            this.MNAME = MNAME.labelsList.join(".");
+            this.RNAME = RNAME.labelsList.join(".");
+            this.SERIAL = RDATA[offset] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+            this.REFRESH = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+            this.RETRY = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+            this.EXPIRE = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+            this.MINIMUM = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+        } else if (this.TYPE === 15) {
+            const PREFERENCE = RDATA[0] * 0x100 + RDATA[1];
+            const EXCHANGE = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset + 2 }, dnsMessageBytes);
+            this.PREFERENCE = PREFERENCE;
+            this.EXCHANGE = EXCHANGE;
         } else {
             this.RDATA = RDATA;
         }
