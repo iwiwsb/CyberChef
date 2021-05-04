@@ -312,7 +312,7 @@ class ResourceRecord {
         } else if (this.TYPE === 2) {
             const nameServer = parseDomainName({labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
             this.NameServer = nameServer.labelsList.join(".");
-        } else if (this.TYPE === 3 || this.TYPE === 4) {
+        } else if (this.TYPE === 3 || this.TYPE === 4 || this.type === 7) {
             const MADNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
             this.MADNAME = MADNAME.labelsList.join(".");
         } else if (this.TYPE === 5) {
@@ -330,6 +330,16 @@ class ResourceRecord {
             this.RETRY = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
             this.EXPIRE = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
             this.MINIMUM = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+        } else if (this.type === 8) {
+            const MGMNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            this.MGMNAME = MGMNAME.labelsList.join(".");
+        } else if (this.TYPE === 9) {
+            const MGMNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
+            this.MGMNAME = MGMNAME.labelsList.join(".");
+        } else if (this.TYPE === 11) {
+            const ADDRESS = `${RDATA[0]}.${RDATA[1]}.${RDATA[2]}.${RDATA[3]}`;
+            const PROTOCOL = RDATA[4];
+            const BITMAP = RDATA.slice(5, this.RDLENGTH);
         } else if (this.TYPE === 15) {
             const PREFERENCE = RDATA[0] * 0x100 + RDATA[1];
             const EXCHANGE = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset + 2 }, dnsMessageBytes);
