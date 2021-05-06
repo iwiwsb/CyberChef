@@ -340,6 +340,31 @@ class ResourceRecord {
             const ADDRESS = `${RDATA[0]}.${RDATA[1]}.${RDATA[2]}.${RDATA[3]}`;
             const PROTOCOL = RDATA[4];
             const BITMAP = RDATA.slice(5, this.RDLENGTH);
+            this.Address = ADDRESS;
+            this.Protocol = PROTOCOL;
+            this.Bitmap = BITMAP;
+        } else if (this.TYPE === 12) {
+            const PTR = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset}, dnsMessageBytes);
+            this.DomainName = PTR;
+        } else if (this.TYPE === 13) {
+            let offset = 0;
+            let ch = RDATA[0];
+            let CPU = "";
+            let OS = "";
+            while (ch !== 0) {
+                CPU += String.fromCharCode(ch);
+                offset += 1;
+                ch = RDATA[offset];
+            }
+            offset += 1;
+            ch = RDATA[offset];
+            while (ch !== 0) {
+                OS += String.fromCharCode(ch);
+                offset += 1;
+                ch = RDATA[offset];
+            }
+            this.HINFO.CPU = CPU;
+            this.HINFO.OS = OS;
         } else if (this.TYPE === 15) {
             const PREFERENCE = RDATA[0] * 0x100 + RDATA[1];
             const EXCHANGE = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset + 2 }, dnsMessageBytes);
