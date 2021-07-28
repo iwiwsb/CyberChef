@@ -63,7 +63,7 @@ class ParseDNSMessage extends Operation {
             throw new OperationError("Need 12 bytes for a DNS Message Header");
         }
 
-        DomainNameSystemMessage.header.id = inputBytes[0] * 0x100 + inputBytes[1];
+        DomainNameSystemMessage.header.id = (inputBytes[0] << 8) + inputBytes[1];
 
         const QR = inputBytes[2] >> 7;
         // const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
@@ -162,10 +162,10 @@ class ParseDNSMessage extends Operation {
         }
 
         DomainNameSystemMessage.header.Z = (inputBytes[3] >> 6) & 1;
-        const QDCOUNT = inputBytes[4] * 0x100 + inputBytes[5];
-        const ANCOUNT = inputBytes[6] * 0x100 + inputBytes[7];
-        const NSCOUNT = inputBytes[8] * 0x100 + inputBytes[9];
-        const ARCOUNT = inputBytes[10] * 0x100 + inputBytes[11];
+        const QDCOUNT = (inputBytes[4] << 8) + inputBytes[5];
+        const ANCOUNT = (inputBytes[6] << 8) + inputBytes[7];
+        const NSCOUNT = (inputBytes[8] << 8) + inputBytes[9];
+        const ARCOUNT = (inputBytes[10] << 8) + inputBytes[11];
 
         DomainNameSystemMessage.header.questionsCount = QDCOUNT;
         DomainNameSystemMessage.header.answersCount = ANCOUNT;
@@ -249,7 +249,7 @@ function parseDomainName(domain, inputBytes) {
             domain = parseDomainName(
                 {
                     labelsList: domainLabelsList,
-                    nextLabelOffset: (leadingByte * 0x100 + inputBytes[domain.nextLabelOffset + 1]) & 0x3FF
+                    nextLabelOffset: ((leadingByte << 8) + inputBytes[domain.nextLabelOffset + 1]) & 0x3FF
                 },
                 inputBytes
             );
@@ -276,8 +276,8 @@ class Question {
         const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
         this.QNAME = domain.labelsList.join(".");
         offset = domain.nextLabelOffset;
-        this.QTYPE = dnsMessageBytes[offset] * 0x100 + dnsMessageBytes[offset += 1];
-        this.QCLASS = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
+        this.QTYPE = (dnsMessageBytes[offset] << 8) + dnsMessageBytes[offset += 1];
+        this.QCLASS = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
         this.length = offset - questionStart + 1;
     }
 }
@@ -297,13 +297,13 @@ class ResourceRecord {
         const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
         this.NAME = domain.labelsList.join(".");
         offset = domain.nextLabelOffset;
-        this.TYPE = dnsMessageBytes[offset] * 0x100 + dnsMessageBytes[offset += 1];
-        this.CLASS = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
-        this.TTL = dnsMessageBytes[offset += 1] * 0x1000000 +
-                   dnsMessageBytes[offset += 1] * 0x10000 +
-                   dnsMessageBytes[offset += 1] * 0x100 +
+        this.TYPE = (dnsMessageBytes[offset] << 8) + dnsMessageBytes[offset += 1];
+        this.CLASS = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
+        this.TTL = (dnsMessageBytes[offset += 1] << 24) +
+                   (dnsMessageBytes[offset += 1] << 16) +
+                   (dnsMessageBytes[offset += 1] << 8) +
                    dnsMessageBytes[offset += 1];
-        this.RDLENGTH = dnsMessageBytes[offset += 1] * 0x100 + dnsMessageBytes[offset += 1];
+        this.RDLENGTH = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
         offset += 1;
         const rdataOffset = offset;
         const RDATA = dnsMessageBytes.slice(rdataOffset, offset += this.RDLENGTH);
@@ -325,11 +325,11 @@ class ResourceRecord {
             let offset = RNAME.nextLabelOffset - rdataOffset;
             this.MNAME = MNAME.labelsList.join(".");
             this.RNAME = RNAME.labelsList.join(".");
-            this.SERIAL = RDATA[offset] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
-            this.REFRESH = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
-            this.RETRY = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
-            this.EXPIRE = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
-            this.MINIMUM = RDATA[offset += 1] * 0x1000000 + RDATA[offset += 1] * 0x10000 + RDATA[offset += 1] * 0x100 + RDATA[offset += 1];
+            this.SERIAL = (RDATA[offset] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
+            this.REFRESH = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
+            this.RETRY = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
+            this.EXPIRE = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
+            this.MINIMUM = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
         } else if (this.type === 8) {
             const MGMNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
             this.MGMNAME = MGMNAME.labelsList.join(".");
@@ -366,7 +366,7 @@ class ResourceRecord {
             this.HINFO.CPU = CPU;
             this.HINFO.OS = OS;
         } else if (this.TYPE === 15) {
-            const PREFERENCE = RDATA[0] * 0x100 + RDATA[1];
+            const PREFERENCE = (RDATA[0] << 8) + RDATA[1];
             const EXCHANGE = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset + 2 }, dnsMessageBytes);
             this.PREFERENCE = PREFERENCE;
             this.EXCHANGE = EXCHANGE;
