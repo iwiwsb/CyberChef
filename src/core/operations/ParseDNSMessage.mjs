@@ -59,8 +59,8 @@ class ParseDNSMessage extends Operation {
         DomainNameSystemMessage.additional = [];
 
 
-        if (inputBytes.length < 12) {
-            throw new OperationError("Need 12 bytes for a DNS Message Header");
+        if (inputBytes.length <= 12) {
+            throw new OperationError("DNS Message size must be bigger than 12 bytes");
         }
 
         DomainNameSystemMessage.header.id = (inputBytes[0] << 8) + inputBytes[1];
