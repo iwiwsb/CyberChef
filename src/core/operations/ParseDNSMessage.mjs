@@ -262,6 +262,52 @@ function parseDomainName(domain, inputBytes) {
 }
 
 /**
+ *
+ */
+class Header {
+    /**
+    *
+    */
+    constructor(inputBytes) {
+        if (inputBytes.length <= 12) {
+            throw new OperationError("DNS Message size must be bigger than 12 bytes");
+        }
+
+        this.ID = (inputBytes[0] << 8) + inputBytes[1];
+        this.QR = inputBytes[2] >> 7; // `Message is a ${(QR === 0) ? "query" : "response"}`;
+        this.OPCODE = (inputBytes[2] >> 3) & 0b1111;
+        // const dnsOperations = [
+        //     { opName: "QUERY", opDesc: "A standard query" },          // 0
+        //     { opName: "IQUERY", opDesc: "An inverse query" },         // 1
+        //     { opName: "STATUS", opDesc: "A server status request" },  // 2
+        //     { opName: "Unassigned", opDesc: "" },                     // 3
+        //     { opName: "NOTIFY", opDesc: "Zone change notification" }, // 4
+        //     { opName: "UPDATE", opDesc: "Dynamic update" },           // 5
+        //     { opName: "DSO", opDesc: "DNS Stateful Operations" }      // 6
+        // ];
+        // let opText= "";
+        // if (OPCODE < 7) {
+        //     opText = `${dnsOperations[OPCODE].opDesc} (${dnsOperations[OPCODE].opName})`;
+        // } else {
+        //     opText = "Unknown operation";
+        // }
+        this.AA = (inputBytes[2] >> 2) & 1; // `Server is ${(AA === 0) ? "not " : ""}an authority for domain`
+        this.TC = (inputBytes[2] >> 1) & 1; // `Message is ${(TC === 0) ? "not " : ""}truncated`;
+        this.RD = inputBytes[2] & 1; // `Do${RD === 1 ? "" : "n't do"} query recursevly`
+        this.RA = inputBytes[3] >> 7; // `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
+        this.AD = (inputBytes[3] >> 5) & 1; // `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
+        this.CD = (inputBytes[3] >> 4) & 1; // `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
+        this.RCODE = inputBytes[3] & 0b1111;
+        this.Z = (inputBytes[3] >> 6) & 1;
+        this.QDCOUNT = (inputBytes[4] << 8) + inputBytes[5];
+        this.ANCOUNT = (inputBytes[6] << 8) + inputBytes[7];
+        this.NSCOUNT = (inputBytes[8] << 8) + inputBytes[9];
+        this.ARCOUNT = (inputBytes[10] << 8) + inputBytes[11];
+    }
+}
+
+
+/**
  * Class for Question structure
  * @private
  */
