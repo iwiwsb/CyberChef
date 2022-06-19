@@ -49,6 +49,8 @@ class ParseDNS extends Operation {
             inputBytes = fromHex(input);
         } else if (format === "Raw") {
             inputBytes = Utils.strToByteArray(input);
+        } else {
+            throw new OperationError("Unrecognised input format.");
         }
 
         const DomainNameSystemMessage = new Object();
