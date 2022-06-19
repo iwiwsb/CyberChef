@@ -67,6 +67,7 @@ import "./tests/PGP.mjs";
 import "./tests/PHP.mjs";
 import "./tests/ParseIPRange.mjs";
 import "./tests/ParseQRCode.mjs";
+import "./tests/PEMtoHex.mjs";
 import "./tests/PowerSet.mjs";
 import "./tests/Regex.mjs";
 import "./tests/Register.mjs";
@@ -96,6 +97,7 @@ import "./tests/Protobuf.mjs";
 import "./tests/ParseSSHHostKey.mjs";
 import "./tests/DefangIP.mjs";
 import "./tests/ParseUDP.mjs";
+import "./tests/ParseTCP.mjs";
 import "./tests/AvroToJSON.mjs";
 import "./tests/Lorenz.mjs";
 import "./tests/LuhnChecksum.mjs";
@@ -111,6 +113,7 @@ import "./tests/JA3SFingerprint.mjs";
 import "./tests/HASSH.mjs";
 import "./tests/GetAllCasings.mjs";
 import "./tests/SIGABA.mjs";
+import "./tests/ELFInfo.mjs";
 
 
 // Cannot test operations that use the File type yet

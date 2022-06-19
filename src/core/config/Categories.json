@@ -190,6 +190,7 @@
             "Parse IP range",
             "Parse IPv6 address",
             "Parse IPv4 header",
+            "Parse TCP",
             "Parse UDP",
             "Parse DNS message",
             "Parse SSH Host Key",
@@ -413,7 +414,8 @@
             "Extract RGBA",
             "View Bit Plane",
             "Randomize Colour Palette",
-            "Extract LSB"
+            "Extract LSB",
+            "ELF Info"
         ]
     },
     {
