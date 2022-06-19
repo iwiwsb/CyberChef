@@ -8,6 +8,7 @@ import Operation from "../Operation.mjs";
 import OperationError from "../errors/OperationError.mjs";
 import { fromHex } from "../lib/Hex.mjs";
 import Utils from "../Utils.mjs";
+import Stream from "../lib/Stream.mjs";
 
 /**
  * Parse DNS Message operation
@@ -53,6 +54,8 @@ class ParseDNS extends Operation {
             throw new OperationError("Unrecognised input format.");
         }
 
+        const stream = new Stream(new Uint8Array(inputBytes));
+
         const DomainNameSystemMessage = new Object();
         DomainNameSystemMessage.header = new Object();
         DomainNameSystemMessage.questions = [];
@@ -65,13 +68,11 @@ class ParseDNS extends Operation {
             throw new OperationError("Need at least 12 bytes for DNS header");
         }
 
-        DomainNameSystemMessage.header.id = (inputBytes[0] << 8) + inputBytes[1];
-
-        const QR = inputBytes[2] >> 7;
+        DomainNameSystemMessage.header.id = stream.readInt(2);
         // const qrType = `Message is a ${(QR === 0) ? "query" : "response"}`;
-        DomainNameSystemMessage.header.messageType = QR;
+        DomainNameSystemMessage.header.messageType = stream.readBits(1);
 
-        const OPCODE = (inputBytes[2] >> 3) & 0b1111;
+        const OPCODE = stream.readBits(4);
         // const dnsOperations = [
         //     { opName: "QUERY", opDesc: "A standard query" },          // 0
         //     { opName: "IQUERY", opDesc: "An inverse query" },         // 1
@@ -87,36 +88,33 @@ class ParseDNS extends Operation {
         // } else {
         //     opText = "Unknown operation";
         // }
+
         DomainNameSystemMessage.header.opCode = OPCODE;
 
-        const TC = (inputBytes[2] >> 1) & 1;
-        // const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
-        DomainNameSystemMessage.header.truncation = TC;
+        // const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
+        DomainNameSystemMessage.header.authoritativeAnswer = stream.readBits(1);
 
-        const RD = inputBytes[2] & 1;
+        // const truncationDesc = `Message is ${(TC === 0) ? "not " : ""}truncated`;
+        DomainNameSystemMessage.header.truncation = stream.readBits(1);
+
+        const RD = stream.readBits(1);
         // const recursionDesiredDesc = `Do${RD === 1 ? "" : "n't do"} query recursevly`;
         DomainNameSystemMessage.header.recursionDesired = RD;
 
-        // True only for response messages
-        if (QR === 1) {
-            const AA = (inputBytes[2] >> 2) & 1;
-            // const authoritativeAnswerDesc = `Server is ${(AA === 0) ? "not " : ""}an authority for domain`;
-            DomainNameSystemMessage.header.authoritativeAnswer = AA;
+        const RA = stream.readBits(1);
+        // const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
+        DomainNameSystemMessage.header.recursionAvailable = RA;
 
-            const RA = inputBytes[3] >> 7;
-            // const recursionAvailableDesc = `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
-            DomainNameSystemMessage.header.recursionAvailable = RA;
+        const AD = stream.readBits(1);
+        // const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
+        DomainNameSystemMessage.header.authenticData = AD;
 
-            const AD = (inputBytes[3] >> 5) & 1;
-            // const authenticDataDesc = `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
-            DomainNameSystemMessage.header.authenticData = AD;
+        const CD = stream.readBits(1);
+        // const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
+        DomainNameSystemMessage.header.checkDisabled = CD;
 
-            const CD = (inputBytes[3] >> 4) & 1;
-            // const checkDisabled = `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
-            DomainNameSystemMessage.header.checkDisabled = CD;
-
-            const RCODE = inputBytes[3] & 0b1111;
-            DomainNameSystemMessage.header.responseCode = RCODE;
+        const RCODE = stream.readBits(4);
+        DomainNameSystemMessage.header.responseCode = RCODE;
 
             // Responses 0-5 described in RFC1035
             // Responses 6-10 described in RFC2136
@@ -161,43 +159,65 @@ class ParseDNS extends Operation {
             // let errorText;
             // errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
             // DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
-        }
 
-        DomainNameSystemMessage.header.Z = (inputBytes[3] >> 6) & 1;
-        const QDCOUNT = (inputBytes[4] << 8) + inputBytes[5];
-        const ANCOUNT = (inputBytes[6] << 8) + inputBytes[7];
-        const NSCOUNT = (inputBytes[8] << 8) + inputBytes[9];
-        const ARCOUNT = (inputBytes[10] << 8) + inputBytes[11];
+
+        DomainNameSystemMessage.header.reserved = stream.readBits(1);
+        const QDCOUNT = stream.readInt(2);
+        const ANCOUNT = stream.readInt(2);
+        const NSCOUNT = stream.readInt(2);
+        const ARCOUNT = stream.readInt(2);
 
         DomainNameSystemMessage.header.questionsCount = QDCOUNT;
         DomainNameSystemMessage.header.answersCount = ANCOUNT;
         DomainNameSystemMessage.header.authorityRecordsCount = NSCOUNT;
         DomainNameSystemMessage.header.additionalRecordsCount = ARCOUNT;
 
-        let offset = 12;
-
         for (let q = 0; q < QDCOUNT; q++) {
-            const question = new Question(inputBytes, offset);
-            DomainNameSystemMessage.questions.push(question);
-            offset += question.length;
+            const domain_name_type = stream.readBits(2);
+            if (domain_name_type == 0b00) {
+                const QuestionSection = new Object();
+                let name_len = stream.readBits(6);
+                let domain_name_labels = [];
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+                QuestionSection.QNAME = domain_name_labels.join(".");
+                QuestionSection.QTYPE = stream.readInt(2);
+                QuestionSection.QCLASS = stream.readInt(2);
+                DomainNameSystemMessage.questions.push(QuestionSection);
+            } else if (domain_name_type == 0b11) {
+                const QuestionSection = new Object();
+                const offset = stream.readBits(6);
+                const prev_pos = stream.position;
+                stream.moveTo(offset);
+                stream.readBits(2);
+                let name_len = stream.readBits(6);
+                let domain_name_labels = [];
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+                QuestionSection.QNAME = domain_name_labels.join(".");
+                QuestionSection.QTYPE = stream.readInt(2);
+                QuestionSection.QCLASS = stream.readInt(2);
+                stream.moveTo(prev_pos);
+            }
+            else {
+                throw new OperationError("The 10 and 01 combinations of first to bits of label are reserved for future use.")
+            }
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
-            const answer = new ResourceRecord(inputBytes, offset);
-            DomainNameSystemMessage.answers.push(answer);
-            offset += answer.length;
+            // todo
         }
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
-            const authority = new ResourceRecord(inputBytes, offset);
-            DomainNameSystemMessage.authority.push(authority);
-            offset += authority.length;
+            // todo
         }
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
-            const additional = new ResourceRecord(inputBytes, offset);
-            DomainNameSystemMessage.additional.push(additional);
-            offset += additional.length;
+            // todo
         }
 
         return DomainNameSystemMessage;
@@ -211,6 +231,7 @@ class ParseDNS extends Operation {
     // }
 
 }
+export default ParseDNS;
 
 // /**
 //  * @private
@@ -225,204 +246,6 @@ class ParseDNS extends Operation {
 //     return unassignedTypesArr;
 // }
 
-/**
- * @private
- * @param {{labelsList: string[], nextLabelOffset: number}} domain
- * @param {number[]} inputBytes
- * @returns {{labelsList: string[], nextLabelOffset: number}}
- */
-function parseDomainName(domain, inputBytes) {
-    const domainLabelsList = domain.labelsList;
-    if (inputBytes[domain.nextLabelOffset] !== 0) {
-        const leadingByte = inputBytes[domain.nextLabelOffset];
-        const firstTwoBits = leadingByte >> 6;
-        if (firstTwoBits === 0) {
-            domainLabelsList
-                .push(inputBytes.slice(domain.nextLabelOffset + 1, domain.nextLabelOffset + inputBytes[domain.nextLabelOffset] + 1)
-                    .map(x => String.fromCharCode(x)).join(""));
-            domain = parseDomainName(
-                {
-                    labelsList: domainLabelsList,
-                    nextLabelOffset: domain.nextLabelOffset + domainLabelsList[domainLabelsList.length - 1].length + 1
-                },
-                inputBytes);
-        } else if (firstTwoBits === 0b11) {
-            const prevOffset = domain.nextLabelOffset;
-            domain = parseDomainName(
-                {
-                    labelsList: domainLabelsList,
-                    nextLabelOffset: ((leadingByte << 8) + inputBytes[domain.nextLabelOffset + 1]) & 0x3FF
-                },
-                inputBytes
-            );
-            domain.nextLabelOffset = prevOffset + 2;
-        }
-    } else {
-        domain.nextLabelOffset += 1;
-    }
-    return domain;
-}
-
-/**
- *
- */
-class Header {
-    /**
-    *
-    */
-    constructor(inputBytes) {
-        if (inputBytes.length <= 12) {
-            throw new OperationError("DNS Message size must be bigger than 12 bytes");
-        }
-
-        this.ID = (inputBytes[0] << 8) + inputBytes[1];
-        this.QR = inputBytes[2] >> 7; // `Message is a ${(QR === 0) ? "query" : "response"}`;
-        this.OPCODE = (inputBytes[2] >> 3) & 0b1111;
-        // const dnsOperations = [
-        //     { opName: "QUERY", opDesc: "A standard query" },          // 0
-        //     { opName: "IQUERY", opDesc: "An inverse query" },         // 1
-        //     { opName: "STATUS", opDesc: "A server status request" },  // 2
-        //     { opName: "Unassigned", opDesc: "" },                     // 3
-        //     { opName: "NOTIFY", opDesc: "Zone change notification" }, // 4
-        //     { opName: "UPDATE", opDesc: "Dynamic update" },           // 5
-        //     { opName: "DSO", opDesc: "DNS Stateful Operations" }      // 6
-        // ];
-        // let opText= "";
-        // if (OPCODE < 7) {
-        //     opText = `${dnsOperations[OPCODE].opDesc} (${dnsOperations[OPCODE].opName})`;
-        // } else {
-        //     opText = "Unknown operation";
-        // }
-        this.AA = (inputBytes[2] >> 2) & 1; // `Server is ${(AA === 0) ? "not " : ""}an authority for domain`
-        this.TC = (inputBytes[2] >> 1) & 1; // `Message is ${(TC === 0) ? "not " : ""}truncated`;
-        this.RD = inputBytes[2] & 1; // `Do${RD === 1 ? "" : "n't do"} query recursevly`
-        this.RA = inputBytes[3] >> 7; // `Server can${(RA === 1) ? "" : "'t"} do recursive queries`;
-        this.AD = (inputBytes[3] >> 5) & 1; // `Answer/authority portion was ${(AD === 1) ? "" : "not "}authenticated by the server`;
-        this.CD = (inputBytes[3] >> 4) & 1; // `Non-authenticated data is ${(CD === 1) ? "" : "not "}acceptable`;
-        this.RCODE = inputBytes[3] & 0b1111;
-        this.Z = (inputBytes[3] >> 6) & 1;
-        this.QDCOUNT = (inputBytes[4] << 8) + inputBytes[5];
-        this.ANCOUNT = (inputBytes[6] << 8) + inputBytes[7];
-        this.NSCOUNT = (inputBytes[8] << 8) + inputBytes[9];
-        this.ARCOUNT = (inputBytes[10] << 8) + inputBytes[11];
-    }
-}
-
-
-/**
- * Class for Question structure
- * @private
- */
-class Question {
-    /**
-     * Question structure constructor
-     * @param {number[]} dnsMessageBytes
-     * @param {number} offset
-     */
-    constructor(dnsMessageBytes, offset) {
-        const questionStart = offset;
-        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
-        this.QNAME = domain.labelsList.join(".");
-        offset = domain.nextLabelOffset;
-        this.QTYPE = (dnsMessageBytes[offset] << 8) + dnsMessageBytes[offset += 1];
-        this.QCLASS = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
-        this.length = offset - questionStart + 1;
-    }
-}
-
-/**
- * Class for Resource Record structure
- * @private
- */
-class ResourceRecord {
-    /**
-     * Resource Record structure constructor
-     * @param dnsMessageBytes
-     * @param offset
-     */
-    constructor(dnsMessageBytes, offset) {
-        const rrStart = offset;
-        const domain = parseDomainName({labelsList: [], nextLabelOffset: offset }, dnsMessageBytes);
-        this.NAME = domain.labelsList.join(".");
-        offset = domain.nextLabelOffset;
-        this.TYPE = (dnsMessageBytes[offset] << 8) + dnsMessageBytes[offset += 1];
-        this.CLASS = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
-        this.TTL = (dnsMessageBytes[offset += 1] << 24) +
-                   (dnsMessageBytes[offset += 1] << 16) +
-                   (dnsMessageBytes[offset += 1] << 8) +
-                   dnsMessageBytes[offset += 1];
-        this.RDLENGTH = (dnsMessageBytes[offset += 1] << 8) + dnsMessageBytes[offset += 1];
-        offset += 1;
-        const rdataOffset = offset;
-        const RDATA = dnsMessageBytes.slice(rdataOffset, offset += this.RDLENGTH);
-        if (this.TYPE === 1) {
-            this.Address = `${RDATA[0]}.${RDATA[1]}.${RDATA[2]}.${RDATA[3]}`;
-        } else if (this.TYPE === 2) {
-            const nameServer = parseDomainName({labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            this.NameServer = nameServer.labelsList.join(".");
-        } else if (this.TYPE === 3 || this.TYPE === 4 || this.type === 7) {
-            const MADNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            this.MADNAME = MADNAME.labelsList.join(".");
-        } else if (this.TYPE === 5) {
-            const CNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            this.CNAME = CNAME.labelsList.join(".");
-        } else if (this.TYPE === 6) {
-            const MNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            const rnameOffset = MNAME.nextLabelOffset;
-            const RNAME = parseDomainName({ labelsList: [], nextLabelOffset: rnameOffset}, dnsMessageBytes);
-            let offset = RNAME.nextLabelOffset - rdataOffset;
-            this.MNAME = MNAME.labelsList.join(".");
-            this.RNAME = RNAME.labelsList.join(".");
-            this.SERIAL = (RDATA[offset] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
-            this.REFRESH = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
-            this.RETRY = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
-            this.EXPIRE = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
-            this.MINIMUM = (RDATA[offset += 1] << 24) + (RDATA[offset += 1] << 16) + (RDATA[offset += 1] << 8) + RDATA[offset += 1];
-        } else if (this.type === 8) {
-            const MGMNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            this.MGMNAME = MGMNAME.labelsList.join(".");
-        } else if (this.TYPE === 9) {
-            const MGMNAME = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset }, dnsMessageBytes);
-            this.MGMNAME = MGMNAME.labelsList.join(".");
-        } else if (this.TYPE === 11) {
-            const ADDRESS = `${RDATA[0]}.${RDATA[1]}.${RDATA[2]}.${RDATA[3]}`;
-            const PROTOCOL = RDATA[4];
-            const BITMAP = RDATA.slice(5, this.RDLENGTH);
-            this.Address = ADDRESS;
-            this.Protocol = PROTOCOL;
-            this.Bitmap = BITMAP;
-        } else if (this.TYPE === 12) {
-            const PTR = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset}, dnsMessageBytes);
-            this.DomainName = PTR;
-        } else if (this.TYPE === 13) {
-            let offset = 0;
-            let ch = RDATA[0];
-            let CPU = "";
-            let OS = "";
-            while (ch !== 0) {
-                CPU += String.fromCharCode(ch);
-                offset += 1;
-                ch = RDATA[offset];
-            }
-            offset += 1;
-            ch = RDATA[offset];
-            while (ch !== 0) {
-                OS += String.fromCharCode(ch);
-                offset += 1;
-                ch = RDATA[offset];
-            }
-            this.HINFO.CPU = CPU;
-            this.HINFO.OS = OS;
-        } else if (this.TYPE === 15) {
-            const PREFERENCE = (RDATA[0] << 8) + RDATA[1];
-            const EXCHANGE = parseDomainName({ labelsList: [], nextLabelOffset: rdataOffset + 2 }, dnsMessageBytes);
-            this.PREFERENCE = PREFERENCE;
-            this.EXCHANGE = EXCHANGE;
-        } else {
-            this.RDATA = RDATA;
-        }
-        this.length = offset - rrStart;
-    }
 
     // static resourceRecordTypes = [
     //     { typeName: "", typeDesc: "" },                                                          // 0
@@ -520,6 +343,3 @@ class ResourceRecord {
     //     { className: "CH", classDesc: "CHAOS class" },                                                           // 3
     //     { className: "HS", classDesc: "Hesiod [Dyer 87]" },                                                      // 4
     // ];
-}
-
-export default ParseDNS;
