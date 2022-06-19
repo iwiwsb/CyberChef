@@ -12,15 +12,15 @@ import Utils from "../Utils.mjs";
 /**
  * Parse DNS Message operation
  */
-class ParseDNSMessage extends Operation {
+class ParseDNS extends Operation {
 
     /**
-     * ParseDNSMessage constructor
+     * ParseDNS constructor
      */
     constructor() {
         super();
 
-        this.name = "Parse DNS Message";
+        this.name = "Parse DNS";
         this.module = "Default";
         this.description = "Parse DNS message";
         this.infoURL = "https://wikipedia.org/wiki/Domain_Name_System";
@@ -520,4 +520,4 @@ class ResourceRecord {
     // ];
 }
 
-export default ParseDNSMessage;
+export default ParseDNS;
