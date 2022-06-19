@@ -204,7 +204,7 @@ class ParseDNS extends Operation {
                 stream.moveTo(prev_pos);
             }
             else {
-                throw new OperationError("The 10 and 01 combinations of first to bits of label are reserved for future use.")
+                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
             }
         }
 
