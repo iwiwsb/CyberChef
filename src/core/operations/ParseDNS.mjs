@@ -238,11 +238,71 @@ class ParseDNS extends Operation {
         }
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
-            // todo
+            const domain_name_type = stream.readBits(2);
+            const Authoriry = new Object();
+            let domain_name_labels = [];
+            if (domain_name_type == 0b00) {
+                let name_len = stream.readBits(6);
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+            } else if (domain_name_type == 0b11) {
+                const offset = stream.readBits(14);
+                const prev_pos = stream.position;
+                stream.moveTo(offset);
+                stream.readBits(2);
+                let name_len = stream.readBits(6);
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+                stream.moveTo(prev_pos);
+            } else {
+                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
+            }
+            Authoriry.name = domain_name_labels.join(".");
+            Authoriry.type = stream.readInt(2);
+            Authoriry.class = stream.readInt(2);
+            Authoriry.timeToLive = stream.readInt(4);
+            const RDLENGTH = stream.readInt(2);
+            Authoriry.resourceDataLength = RDLENGTH;
+            Authoriry.resourceData = stream.getBytes(RDLENGTH);
+            DomainNameSystemMessage.answers.push(Authoriry);
         }
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
-            // todo
+            const domain_name_type = stream.readBits(2);
+            const Additional = new Object();
+            let domain_name_labels = [];
+            if (domain_name_type == 0b00) {
+                let name_len = stream.readBits(6);
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+            } else if (domain_name_type == 0b11) {
+                const offset = stream.readBits(14);
+                const prev_pos = stream.position;
+                stream.moveTo(offset);
+                stream.readBits(2);
+                let name_len = stream.readBits(6);
+                while (name_len != 0) {
+                    domain_name_labels.push(stream.readString(name_len));
+                    name_len = stream.readInt(1);
+                }
+                stream.moveTo(prev_pos);
+            } else {
+                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
+            }
+            Additional.name = domain_name_labels.join(".");
+            Additional.type = stream.readInt(2);
+            Additional.class = stream.readInt(2);
+            Additional.timeToLive = stream.readInt(4);
+            const RDLENGTH = stream.readInt(2);
+            Additional.resourceDataLength = RDLENGTH;
+            Additional.resourceData = stream.getBytes(RDLENGTH);
+            DomainNameSystemMessage.answers.push(Additional);
         }
 
         return DomainNameSystemMessage;
