@@ -174,7 +174,7 @@ class ParseDNS extends Operation {
 
         for (let q = 0; q < QDCOUNT; q++) {
             const Question = new Object();
-            const domainNameLabels = get_domain_labels([], stream);
+            const domainNameLabels = getDomainNameLabels([], stream);
             Question.name = domainNameLabels.join(".");
             Question.type = stream.readInt(2);
             Question.class = stream.readInt(2);
@@ -183,7 +183,7 @@ class ParseDNS extends Operation {
 
         for (let an = 0; an < ANCOUNT; an++) {
             const Answer = new Object();
-            const domainNameLabels = get_domain_labels([], stream);
+            const domainNameLabels = getDomainNameLabels([], stream);
             Answer.name = domainNameLabels.join(".");
             Answer.type = stream.readInt(2);
             Answer.class = stream.readInt(2);
@@ -196,7 +196,7 @@ class ParseDNS extends Operation {
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
             const Authoriry = new Object();
-            const domainNameLabels = get_domain_labels([], stream);
+            const domainNameLabels = getDomainNameLabels([], stream);
             Authoriry.name = domainNameLabels.join(".");
             Authoriry.type = stream.readInt(2);
             Authoriry.class = stream.readInt(2);
@@ -209,7 +209,7 @@ class ParseDNS extends Operation {
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
             const Additional = new Object();
-            const domainNameLabels = get_domain_labels([], stream);
+            const domainNameLabels = getDomainNameLabels([], stream);
             Additional.name = domainNameLabels.join(".");
             Additional.type = stream.readInt(2);
             Additional.class = stream.readInt(2);
@@ -240,21 +240,21 @@ export default ParseDNS;
  * @param {Stream} stream
  * @returns
  */
-function get_domain_labels(domainLabels, stream) {
+function getDomainNameLabels(domainLabels, stream) {
     const labelType = stream.readBits(2);
     if (labelType == 0b00) {
         let nameLen = stream.readBits(6);
         if (nameLen != 0) {
             const label = stream.readString(nameLen);
             domainLabels.push(label);
-            return get_domain_labels(domainLabels, stream);
+            return getDomainNameLabels(domainLabels, stream);
         }
         return domainLabels;
     } else if (labelType == 0b11) {
         const offset = stream.readBits(14);
         const prevPos = stream.position;
         stream.moveTo(offset);
-        get_domain_labels(domainLabels, stream);
+        getDomainNameLabels(domainLabels, stream);
         stream.moveTo(prevPos);
         return domainLabels;
     } else {
