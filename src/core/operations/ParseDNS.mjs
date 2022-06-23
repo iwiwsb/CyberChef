@@ -173,30 +173,8 @@ class ParseDNS extends Operation {
         DomainNameSystemMessage.header.additionalRecordsCount = ARCOUNT;
 
         for (let q = 0; q < QDCOUNT; q++) {
-            const domainNameType = stream.readBits(2);
             const Question = new Object();
-            let domainNameLabels = [];
-            if (domainNameType == 0b00) {
-                let nameLen = stream.readBits(6);
-
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-            } else if (domainNameType == 0b11) {
-                const offset = stream.readBits(14);
-                const prevPos = stream.position;
-                stream.moveTo(offset);
-                stream.readBits(2);
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-                stream.moveTo(prevPos);
-            } else {
-                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
-            }
+            const domainNameLabels = get_domain_labels([], stream);
             Question.name = domainNameLabels.join(".");
             Question.type = stream.readInt(2);
             Question.class = stream.readInt(2);
@@ -204,29 +182,8 @@ class ParseDNS extends Operation {
         }
 
         for (let an = 0; an < ANCOUNT; an++) {
-            const domainNameType = stream.readBits(2);
             const Answer = new Object();
-            let domainNameLabels = [];
-            if (domainNameType == 0b00) {
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-            } else if (domainNameType == 0b11) {
-                const offset = stream.readBits(14);
-                const prevPos = stream.position;
-                stream.moveTo(offset);
-                stream.readBits(2);
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-                stream.moveTo(prevPos);
-            } else {
-                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
-            }
+            const domainNameLabels = get_domain_labels([], stream);
             Answer.name = domainNameLabels.join(".");
             Answer.type = stream.readInt(2);
             Answer.class = stream.readInt(2);
@@ -238,29 +195,8 @@ class ParseDNS extends Operation {
         }
 
         for (let ns = 0; ns < NSCOUNT; ns++) {
-            const domainLameType = stream.readBits(2);
             const Authoriry = new Object();
-            let domainNameLabels = [];
-            if (domainLameType == 0b00) {
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-            } else if (domainLameType == 0b11) {
-                const offset = stream.readBits(14);
-                const prevPos = stream.position;
-                stream.moveTo(offset);
-                stream.readBits(2);
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-                stream.moveTo(prevPos);
-            } else {
-                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
-            }
+            const domainNameLabels = get_domain_labels([], stream);
             Authoriry.name = domainNameLabels.join(".");
             Authoriry.type = stream.readInt(2);
             Authoriry.class = stream.readInt(2);
@@ -268,33 +204,12 @@ class ParseDNS extends Operation {
             const RDLENGTH = stream.readInt(2);
             Authoriry.resourceDataLength = RDLENGTH;
             Authoriry.resourceData = stream.getBytes(RDLENGTH);
-            DomainNameSystemMessage.answers.push(Authoriry);
+            DomainNameSystemMessage.authority.push(Authoriry);
         }
 
         for (let ar = 0; ar < ARCOUNT; ar++) {
-            const domainNameType = stream.readBits(2);
             const Additional = new Object();
-            let domainNameLabels = [];
-            if (domainNameType == 0b00) {
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-            } else if (domainNameType == 0b11) {
-                const offset = stream.readBits(14);
-                const prevPos = stream.position;
-                stream.moveTo(offset);
-                stream.readBits(2);
-                let nameLen = stream.readBits(6);
-                while (nameLen != 0) {
-                    domainNameLabels.push(stream.readString(nameLen));
-                    nameLen = stream.readInt(1);
-                }
-                stream.moveTo(prevPos);
-            } else {
-                throw new OperationError("The 10 and 01 combinations of first two bits of label are reserved for future use.")
-            }
+            const domainNameLabels = get_domain_labels([], stream);
             Additional.name = domainNameLabels.join(".");
             Additional.type = stream.readInt(2);
             Additional.class = stream.readInt(2);
@@ -302,7 +217,7 @@ class ParseDNS extends Operation {
             const RDLENGTH = stream.readInt(2);
             Additional.resourceDataLength = RDLENGTH;
             Additional.resourceData = stream.getBytes(RDLENGTH);
-            DomainNameSystemMessage.answers.push(Additional);
+            DomainNameSystemMessage.additional.push(Additional);
         }
 
         return DomainNameSystemMessage;
@@ -317,6 +232,36 @@ class ParseDNS extends Operation {
 
 }
 export default ParseDNS;
+
+
+/**
+ *
+ * @param {Array<string>} domainLabels
+ * @param {Stream} stream
+ * @returns
+ */
+function get_domain_labels(domainLabels, stream) {
+    const labelType = stream.readBits(2);
+    if (labelType == 0b00) {
+        let nameLen = stream.readBits(6);
+        if (nameLen != 0) {
+            const label = stream.readString(nameLen);
+            domainLabels.push(label);
+            return get_domain_labels(domainLabels, stream);
+        }
+        return domainLabels;
+    } else if (labelType == 0b11) {
+        const offset = stream.readBits(14);
+        const prevPos = stream.position;
+        stream.moveTo(offset);
+        get_domain_labels(domainLabels, stream);
+        stream.moveTo(prevPos);
+        return domainLabels;
+    } else {
+        throw new OperationError("Thrown from function: The 10 and 01 combinations of first two bits of label are reserved for future use.")
+    }
+
+}
 
 // /**
 //  * @private
