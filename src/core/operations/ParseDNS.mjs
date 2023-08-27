@@ -116,49 +116,49 @@ class ParseDNS extends Operation {
         const RCODE = stream.readBits(4);
         DomainNameSystemMessage.header.responseCode = RCODE;
 
-            // Responses 0-5 described in RFC1035
-            // Responses 6-10 described in RFC2136
-            // Response 11 described in RFC8490
-            // Responses 16-18 described in RFC8945
-            // Responses 19-21 described in RFC2930
-            // Response 22 described in RFC8945
-            // Response 23 described in RFC7873
-            // const dnsResponses = [
-            //     { responseName: "NoError", errorDesc: "No Error" },                          // 0
-            //     { responseName: "FormErr", errorDesc: "Format Error" },                      // 1
-            //     { responseName: "ServFail", errorDesc: "Server Failure" },                   // 2
-            //     { responseName: "NXDomain", errorDesc: "Non-Existent Domain" },              // 3
-            //     { responseName: "NotImp", errorDesc: "Not Implemented" },                    // 4
-            //     { responseName: "Refused", errorDesc: "Query Refused" },                     // 5
-            //     { responseName: "YXDomain", errorDesc: "Name Exists when it should not" },   // 6
-            //     { responseName: "YXRRSet", errorDesc: "RR Set Exists when it should not" },  // 7
-            //     { responseName: "NXRRSet", errorDesc: "RR Set that should exist does not" }, // 8
-            //     { responseName: "NotAuth", errorDesc: "Server Not Authoritative for zone" }, // 9
-            //     { responseName: "NotZone", errorDesc: "Name not contained in zone" },        // 10
-            //     { responseName: "DSOTYPENI", errorDesc: "DSO-TYPE Not Implemented" },        // 11
-            //     { responseName: "Unassigned", errorDesc: "" },                               // 12
-            //     { responseName: "Unassigned", errorDesc: "" },                               // 13
-            //     { responseName: "Unassigned", errorDesc: "" },                               // 14
-            //     { responseName: "Unassigned", errorDesc: "" },                               // 15
-            //     { responseName: "BADSIG", errorDesc: "TSIG Signature Failure" },             // 16
-            //     { responseName: "BADKEY", errorDesc: "Key not recognized" },                 // 17
-            //     { responseName: "BADTIME", errorDesc: "Signature out of time window" },      // 18
-            //     { responseName: "BADMODE", errorDesc: "Bad TKEY Mode" },                     // 19
-            //     { responseName: "BADNAME", errorDesc: "Duplicate key name" },                // 20
-            //     { responseName: "BADALG", errorDesc: "Algorithm not supported" },            // 21
-            //     { responseName: "BADTRUNC", errorDesc: "Bad Truncation" },                   // 22
-            //     { responseName: "BADCOOKIE", errorDesc: "Bad/missing Server Cookie" },       // 23
-            // ];
+        // Responses 0-5 described in RFC1035
+        // Responses 6-10 described in RFC2136
+        // Response 11 described in RFC8490
+        // Responses 16-18 described in RFC8945
+        // Responses 19-21 described in RFC2930
+        // Response 22 described in RFC8945
+        // Response 23 described in RFC7873
+        // const dnsResponses = [
+        //     { responseName: "NoError", errorDesc: "No Error" },                          // 0
+        //     { responseName: "FormErr", errorDesc: "Format Error" },                      // 1
+        //     { responseName: "ServFail", errorDesc: "Server Failure" },                   // 2
+        //     { responseName: "NXDomain", errorDesc: "Non-Existent Domain" },              // 3
+        //     { responseName: "NotImp", errorDesc: "Not Implemented" },                    // 4
+        //     { responseName: "Refused", errorDesc: "Query Refused" },                     // 5
+        //     { responseName: "YXDomain", errorDesc: "Name Exists when it should not" },   // 6
+        //     { responseName: "YXRRSet", errorDesc: "RR Set Exists when it should not" },  // 7
+        //     { responseName: "NXRRSet", errorDesc: "RR Set that should exist does not" }, // 8
+        //     { responseName: "NotAuth", errorDesc: "Server Not Authoritative for zone" }, // 9
+        //     { responseName: "NotZone", errorDesc: "Name not contained in zone" },        // 10
+        //     { responseName: "DSOTYPENI", errorDesc: "DSO-TYPE Not Implemented" },        // 11
+        //     { responseName: "Unassigned", errorDesc: "" },                               // 12
+        //     { responseName: "Unassigned", errorDesc: "" },                               // 13
+        //     { responseName: "Unassigned", errorDesc: "" },                               // 14
+        //     { responseName: "Unassigned", errorDesc: "" },                               // 15
+        //     { responseName: "BADSIG", errorDesc: "TSIG Signature Failure" },             // 16
+        //     { responseName: "BADKEY", errorDesc: "Key not recognized" },                 // 17
+        //     { responseName: "BADTIME", errorDesc: "Signature out of time window" },      // 18
+        //     { responseName: "BADMODE", errorDesc: "Bad TKEY Mode" },                     // 19
+        //     { responseName: "BADNAME", errorDesc: "Duplicate key name" },                // 20
+        //     { responseName: "BADALG", errorDesc: "Algorithm not supported" },            // 21
+        //     { responseName: "BADTRUNC", errorDesc: "Bad Truncation" },                   // 22
+        //     { responseName: "BADCOOKIE", errorDesc: "Bad/missing Server Cookie" },       // 23
+        // ];
 
-            // Response described in RFC8945
-            // const dnsSecretKeyTransactNotAuthResponse = { responseName: "NotAuth", errorDesc: "Not Authorized" }; // 9
+        // Response described in RFC8945
+        // const dnsSecretKeyTransactNotAuthResponse = { responseName: "NotAuth", errorDesc: "Not Authorized" }; // 9
 
-            // Response described in RFC6891
-            // const dnsExtensionBadVersResponse = { responseName: "BADVERS", errorDesc: "Bad OPT Version" }; // 16
+        // Response described in RFC6891
+        // const dnsExtensionBadVersResponse = { responseName: "BADVERS", errorDesc: "Bad OPT Version" }; // 16
 
-            // let errorText;
-            // errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
-            // DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
+        // let errorText;
+        // errorText = `${dnsResponses[RCODE].errorDesc} (${dnsResponses[RCODE].responseName})`;
+        // DomainNameSystemMessage.header.responseCode = `${errorText} (${RCODE})`;
 
 
         DomainNameSystemMessage.header.reserved = stream.readBits(1);
@@ -242,15 +242,15 @@ export default ParseDNS;
  */
 function getDomainNameLabels(domainLabels, stream) {
     const labelType = stream.readBits(2);
-    if (labelType == 0b00) {
-        let nameLen = stream.readBits(6);
-        if (nameLen != 0) {
+    if (labelType === 0b00) {
+        const nameLen = stream.readBits(6);
+        if (nameLen !== 0) {
             const label = stream.readString(nameLen);
             domainLabels.push(label);
             return getDomainNameLabels(domainLabels, stream);
         }
         return domainLabels;
-    } else if (labelType == 0b11) {
+    } else if (labelType === 0b11) {
         const offset = stream.readBits(14);
         const prevPos = stream.position;
         stream.moveTo(offset);
@@ -258,9 +258,8 @@ function getDomainNameLabels(domainLabels, stream) {
         stream.moveTo(prevPos);
         return domainLabels;
     } else {
-        throw new OperationError("Thrown from function: The 10 and 01 combinations of first two bits of label are reserved for future use.")
+        throw new OperationError("Thrown from function: The 10 and 01 combinations of first two bits of label are reserved for future use.");
     }
-
 }
 
 // /**
